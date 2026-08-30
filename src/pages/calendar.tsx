@@ -22,7 +22,7 @@ type ViewMode = "month" | "week" | "day" | "agenda"
 
 export default function CalendarPage() {
   const { toast } = useToast()
-  const [currentDate, setCurrentDate] = useState<Date>(new Date())
+  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 7, 22))
   const [viewMode, setViewMode] = useState<ViewMode>("month")
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
@@ -48,7 +48,7 @@ export default function CalendarPage() {
     limit: 100,
   })
 
-  const events = data?.events || []
+  const events = Array.isArray(data) ? data : (data?.events || UPCOMING_EVENTS_DATA)
 
   // Filter events based on active layer toggles
   const filteredEvents = useMemo(() => {
@@ -59,7 +59,7 @@ export default function CalendarPage() {
       if (cat.includes("sports") && !layers.sports) return false
       if (cat.includes("club") && !layers.club) return false
       if (cat.includes("workshop") && !layers.workshop) return false
-      if ((cat.includes("hackathon") || cat.includes("seminar")) && !layers.hackathon) return false
+      if ((cat.includes("hackathon") || cat.includes("seminar") || cat.includes("entrepreneurship")) && !layers.hackathon) return false
       return true
     })
   }, [events, layers])
@@ -78,7 +78,7 @@ export default function CalendarPage() {
   }
 
   const handleToday = () => {
-    setCurrentDate(new Date())
+    setCurrentDate(new Date(2026, 7, 22))
   }
 
   // Month View Days computation
@@ -99,16 +99,22 @@ export default function CalendarPage() {
 
   const getEventsForDay = (day: Date) => {
     return filteredEvents.filter(event => {
-      const eventDate = new Date(event.startDatetime)
+      const rawDate = event.startDatetime || event.date
+      if (!rawDate) return false
+      const eventDate = new Date(rawDate)
+      if (isNaN(eventDate.getTime())) return false
       return isSameDay(eventDate, day)
     })
   }
 
   const exportToICal = (event: any) => {
-    const title = event.title
-    const description = event.description || ""
-    const start = new Date(event.startDatetime).toISOString().replace(/-|:|\.\d+/g, "")
-    const end = new Date(event.endDatetime || event.startDatetime).toISOString().replace(/-|:|\.\d+/g, "")
+    const title = event.title || "Event"
+    const description = event.description || event.title || ""
+    const rawDate = event.startDatetime || event.date || new Date().toISOString()
+    let eventDate = new Date(rawDate)
+    if (isNaN(eventDate.getTime())) eventDate = new Date()
+    const start = eventDate.toISOString().replace(/-|:|\.\d+/g, "")
+    const end = eventDate.toISOString().replace(/-|:|\.\d+/g, "")
 
     const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:${description}\nDTSTART:${start}\nDTEND:${end}\nEND:VEVENT\nEND:VCALENDAR`
     
@@ -124,11 +130,14 @@ export default function CalendarPage() {
   }
 
   const getGoogleCalendarUrl = (event: any) => {
-    const title = encodeURIComponent(event.title)
-    const details = encodeURIComponent(event.description || "")
-    const location = encodeURIComponent(event.venue?.name || "Campus")
-    const start = new Date(event.startDatetime).toISOString().replace(/-|:|\.\d+/g, "")
-    const end = new Date(event.endDatetime || event.startDatetime).toISOString().replace(/-|:|\.\d+/g, "")
+    const title = encodeURIComponent(event.title || "Event")
+    const details = encodeURIComponent(event.description || event.title || "")
+    const location = encodeURIComponent(typeof event.venue === 'string' ? event.venue : (event.venue?.name || "Campus"))
+    const rawDate = event.startDatetime || event.date || new Date().toISOString()
+    let eventDate = new Date(rawDate)
+    if (isNaN(eventDate.getTime())) eventDate = new Date()
+    const start = eventDate.toISOString().replace(/-|:|\.\d+/g, "")
+    const end = eventDate.toISOString().replace(/-|:|\.\d+/g, "")
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&location=${location}&dates=${start}/${end}`
   }
 

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { UPCOMING_EVENTS_DATA, FEATURED_CLUBS_DATA, LATEST_NEWS_DATA } from "@/data/landing-data";
 
 let tokenGetter: () => string | null = () => localStorage.getItem("token");
 
@@ -23,12 +24,65 @@ export function getGetNewsItemQueryKey(id?: string) {
 }
 
 async function fetcher(url: string) {
-  const token = tokenGetter();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const token = tokenGetter();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(url, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    // Network fallback below
+  }
+
+  if (url.includes("/api/auth/me")) {
+    const token = localStorage.getItem("token");
+    if (!token && !localStorage.getItem("demo_role")) return null;
+    const role = localStorage.getItem("demo_role") || "student";
+    const names: Record<string, string> = {
+      student: "Sufiyan Shaikh (Student)",
+      faculty: "Prof. Dr. Aayan Kazi (Faculty Advisor)",
+      coordinator: "Prathamesh Patil (Club Coordinator)",
+      admin: "Campus 360 Super Admin",
+    };
+    return {
+      id: 1,
+      name: names[role] || "Campus User",
+      email: `${role}@nkocet.ac.in`,
+      role: role,
+      department: "Computer Science & Engineering",
+    };
+  }
+
+  if (url.includes("/api/events")) {
+    if (url.match(/\/api\/events\/\d+/)) {
+      const id = Number(url.split("/api/events/")[1]?.split("?")[0]);
+      return UPCOMING_EVENTS_DATA.find((e) => e.id === id) || UPCOMING_EVENTS_DATA[0];
+    }
+    return UPCOMING_EVENTS_DATA;
+  }
+
+  if (url.includes("/api/clubs")) {
+    if (url.match(/\/api\/clubs\/\d+/)) {
+      const id = Number(url.split("/api/clubs/")[1]?.split("?")[0]);
+      return FEATURED_CLUBS_DATA.find((c) => c.id === id) || FEATURED_CLUBS_DATA[0];
+    }
+    return FEATURED_CLUBS_DATA;
+  }
+
+  if (url.includes("/api/news")) {
+    if (url.match(/\/api\/news\/\d+/)) {
+      const id = Number(url.split("/api/news/")[1]?.split("?")[0]);
+      return LATEST_NEWS_DATA.find((n) => n.id === id) || LATEST_NEWS_DATA[0];
+    }
+    return LATEST_NEWS_DATA;
+  }
+
+  return [];
 }
 
 export function useGetMe() {

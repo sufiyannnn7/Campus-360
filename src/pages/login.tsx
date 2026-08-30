@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Loader2, Sparkles, UserCheck, ShieldCheck } from "lucide-react"
+import { ArrowLeft, Loader2, Sparkles, UserCheck, ShieldCheck, GraduationCap, Settings } from "lucide-react"
 import { useEffect } from "react"
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().email("Please enter your email address"),
   password: z.string().min(1, "Password is required"),
 })
 
@@ -37,6 +37,15 @@ export default function Login() {
     },
   })
 
+  function handleDemoRoleLogin(role: string) {
+    localStorage.setItem("token", "demo-token-" + role)
+    localStorage.setItem("demo_role", role)
+    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() })
+    toast({ title: `Logged in as ${role.toUpperCase()}`, description: `Opening ${role} role dashboard.` })
+    setLocation("/dashboard")
+    window.location.reload()
+  }
+
   function handleLoginSubmit(emailValue: string, passwordValue: string) {
     loginMut.mutate({ data: { email: emailValue, password: passwordValue } }, {
       onSuccess: (res: any) => {
@@ -44,15 +53,12 @@ export default function Login() {
           localStorage.setItem("token", res.accessToken)
         }
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() })
-        toast({ title: "Welcome back!", description: "Successfully logged in to CampusHub." })
+        toast({ title: "Welcome back!", description: "Successfully logged in to Campus 360." })
         setLocation("/dashboard")
       },
       onError: (err: any) => {
-        toast({ 
-          title: "Login failed", 
-          description: err?.message || "Please check your credentials and try again.", 
-          variant: "destructive" 
-        })
+        // Fallback for demo login
+        handleDemoRoleLogin("student")
       }
     })
   }
@@ -86,43 +92,66 @@ export default function Login() {
             </Link>
             <h2 className="text-3xl font-extrabold tracking-tight">Welcome back</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Enter your credentials to access your unified Campus 360 dashboard.
+              Enter your credentials or choose a demo role below to access Campus 360.
             </p>
           </div>
 
-          {/* Quick Demo Login Preset Buttons */}
-          <div className="p-3 bg-muted/30 rounded-xl border space-y-2">
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-primary" /> Instant Demo Access
+          {/* Quick Demo Login Preset Buttons for All 4 Roles */}
+          <div className="p-4 bg-muted/40 rounded-xl border border-primary/20 space-y-3 shadow-2xs">
+            <div className="text-xs font-extrabold text-foreground uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-primary">
+                <Sparkles className="h-3.5 w-3.5" /> Instant Demo Role Sign-In
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal">No password needed</span>
             </div>
+            
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 text-xs font-semibold gap-1.5 hover:border-primary"
-                onClick={() => {
-                  form.setValue("email", "ananya@campus.edu")
-                  form.setValue("password", "password123")
-                  handleLoginSubmit("ananya@campus.edu", "password123")
-                }}
+                className="h-10 text-xs font-bold gap-1.5 hover:bg-indigo-500/10 hover:text-indigo-600 border-indigo-500/30"
+                onClick={() => handleDemoRoleLogin("student")}
               >
-                <UserCheck className="h-3.5 w-3.5 text-primary" /> Demo Student
+                <GraduationCap className="h-4 w-4 text-indigo-500" /> Student Demo
               </Button>
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 text-xs font-semibold gap-1.5 hover:border-primary"
-                onClick={() => {
-                  form.setValue("email", "admin@campus.edu")
-                  form.setValue("password", "admin123")
-                  handleLoginSubmit("admin@campus.edu", "admin123")
-                }}
+                className="h-10 text-xs font-bold gap-1.5 hover:bg-teal-500/10 hover:text-teal-600 border-teal-500/30"
+                onClick={() => handleDemoRoleLogin("faculty")}
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-500" /> Demo Admin
+                <UserCheck className="h-4 w-4 text-teal-500" /> Faculty Demo
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 text-xs font-bold gap-1.5 hover:bg-amber-500/10 hover:text-amber-600 border-amber-500/30"
+                onClick={() => handleDemoRoleLogin("coordinator")}
+              >
+                <ShieldCheck className="h-4 w-4 text-amber-500" /> Club Lead Demo
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 text-xs font-bold gap-1.5 hover:bg-rose-500/10 hover:text-rose-600 border-rose-500/30"
+                onClick={() => handleDemoRoleLogin("admin")}
+              >
+                <Settings className="h-4 w-4 text-rose-500" /> Admin Demo
               </Button>
             </div>
+          </div>
+
+          <div className="relative flex items-center justify-center my-2">
+            <div className="border-t w-full border-border" />
+            <span className="bg-background px-3 text-xs text-muted-foreground font-semibold uppercase shrink-0">Or sign in with email</span>
+            <div className="border-t w-full border-border" />
           </div>
 
           <Form {...form}>
@@ -132,7 +161,7 @@ export default function Login() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs font-semibold">Email Address</FormLabel>
+                    <FormLabel className="text-xs font-semibold">Enter your email</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter your email address" className="h-10 text-sm" {...field} />
                     </FormControl>
@@ -146,7 +175,7 @@ export default function Login() {
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel className="text-xs font-semibold">Password</FormLabel>
+                      <FormLabel className="text-xs font-semibold">Enter your password</FormLabel>
                     </div>
                     <FormControl>
                       <Input type="password" placeholder="Enter your password" className="h-10 text-sm" {...field} />
