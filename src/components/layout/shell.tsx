@@ -212,13 +212,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto animate-in fade-in-50 duration-200">
         <div className="hidden h-14 w-full items-center justify-end border-b bg-background px-6 md:flex gap-3">
-          <Link href="/search" className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/60 hover:bg-muted px-3 py-1.5 rounded-lg transition-colors w-60 border">
-            <Search className="h-3.5 w-3.5" />
-            <span>Search anything...</span>
-            <kbd className="ml-auto pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border bg-background px-1 font-mono text-[9px] font-medium text-muted-foreground opacity-100">
-              ⌘K
-            </kbd>
-          </Link>
+          {!location.startsWith('/search') && (
+            <Link href="/search" className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/60 hover:bg-muted px-3 py-1.5 rounded-lg transition-colors w-60 border">
+              <Search className="h-3.5 w-3.5" />
+              <span>Search anything...</span>
+              <kbd className="ml-auto pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border bg-background px-1 font-mono text-[9px] font-medium text-muted-foreground opacity-100">
+                ⌘K
+              </kbd>
+            </Link>
+          )}
           <Link href="/notifications" className="relative">
             <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
               <Bell className="h-4 w-4 text-muted-foreground" />

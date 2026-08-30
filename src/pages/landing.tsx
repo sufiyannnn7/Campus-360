@@ -176,8 +176,8 @@ export default function Landing() {
             <Hero />
           </div>
 
-          {/* Live Stats Bar pinned at bottom of Screen 1 fold */}
-          <div>
+          {/* Live Stats Bar pinned cleanly at bottom of Screen 1 fold */}
+          <div className="pb-3 sm:pb-5">
             <Stats />
           </div>
 
