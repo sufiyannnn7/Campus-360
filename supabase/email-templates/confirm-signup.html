@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your Campus 360 Account</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b0f19;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #e2e8f0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #0b0f19;
+      padding: 40px 16px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #31104b 50%, #0f172a 100%);
+      padding: 36px 32px 30px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background-color: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #a5b4fc;
+      margin-bottom: 14px;
+    }
+    .brand-title {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    .brand-title span {
+      background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-tagline {
+      margin: 8px 0 0;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .salutation {
+      font-size: 20px;
+      font-weight: 800;
+      color: #f8fafc;
+      margin: 0 0 12px;
+    }
+    .lead-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      margin: 0 0 26px;
+    }
+    .cta-container {
+      text-align: center;
+      padding: 10px 0 30px;
+    }
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      padding: 14px 34px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.45);
+      transition: all 0.2s ease;
+    }
+    .feature-card {
+      background-color: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .feature-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin: 0 0 12px;
+    }
+    .feature-item {
+      display: table;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .feature-item:last-child {
+      margin-bottom: 0;
+    }
+    .feature-bullet {
+      display: table-cell;
+      width: 22px;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    .feature-desc {
+      display: table-cell;
+      vertical-align: top;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #cbd5e1;
+    }
+    .feature-desc strong {
+      color: #f1f5f9;
+    }
+    .fallback-box {
+      background-color: rgba(15, 23, 42, 0.7);
+      border: 1px dashed rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 20px 0;
+      word-break: break-all;
+    }
+    .fallback-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      margin: 0 0 6px;
+    }
+    .fallback-link {
+      font-size: 12px;
+      color: #818cf8;
+      text-decoration: none;
+    }
+    .quick-links {
+      text-align: center;
+      padding: 18px 0 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .quick-links a {
+      color: #a5b4fc;
+      text-decoration: none;
+      font-weight: 600;
+      margin: 0 8px;
+    }
+    .footer {
+      background-color: #0d131f;
+      padding: 24px 32px;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .footer a {
+      color: #94a3b8;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      
+      <!-- Header Banner -->
+      <div class="header">
+        <div class="badge">NKOCET Official Portal</div>
+        <h1 class="brand-title">Campus <span>360</span></h1>
+        <p class="brand-tagline">Connecting Every Corner of Campus Life</p>
+      </div>
+
+      <!-- Main Body -->
+      <div class="content">
+        <h2 class="salutation">Confirm your email address</h2>
+        <p class="lead-text">
+          Thank you for signing up for <strong>Campus 360</strong>. Please verify your email address to activate your account and unlock official access to college events, club recruitments, and academic circulars.
+        </p>
+
+        <!-- CTA Action -->
+        <div class="cta-container">
+          <a href="{{ .ConfirmationURL }}" class="cta-button" target="_blank" rel="noopener noreferrer">
+            Confirm Email & Activate Account →
+          </a>
+        </div>
+
+        <!-- Highlights & Value Preview -->
+        <div class="feature-card">
+          <div class="feature-title">What you can do once confirmed</div>
+          
+          <div class="feature-item">
+            <div class="feature-bullet">📅</div>
+            <div class="feature-desc">
+              <strong>Campus Events & Clash Safeguards:</strong> Discover technical symposiums, workshops, and sports meets with conflict detection against your lecture timetable.
+            </div>
+          </div>
+          
+          <div class="feature-item">
+            <div class="feature-bullet">🏛️</div>
+            <div class="feature-desc">
+              <strong>Student Clubs & Societies:</strong> Join Coding Club, Robotics Society, GDSC, E-Cell, and apply for Club Coordinator leadership roles.
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-bullet">📢</div>
+            <div class="feature-desc">
+              <strong>Verified Announcements:</strong> Receive direct, instant circulars from Institute administration and department heads.
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-bullet">🏆</div>
+            <div class="feature-desc">
+              <strong>Digital Certificates & Leaderboard:</strong> Earn engagement points, climb the campus rankings, and download verified credentials.
+            </div>
+          </div>
+        </div>
+
+        <!-- Fallback Link -->
+        <div class="fallback-box">
+          <div class="fallback-label">Button not working? Copy and paste this link into your browser:</div>
+          <a href="{{ .ConfirmationURL }}" class="fallback-link">{{ .ConfirmationURL }}</a>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="quick-links">
+          <span>Campus 360 Portals:</span>
+          <a href="{{ .SiteURL }}/login">Login</a> •
+          <a href="{{ .SiteURL }}/signup">Sign Up</a> •
+          <a href="{{ .SiteURL }}/events">Events</a> •
+          <a href="{{ .SiteURL }}/clubs">Clubs</a>
+        </div>
+      </div>
+
+      <!-- Institutional Footer -->
+      <div class="footer">
+        <p style="margin: 0 0 6px;">
+          This verification link was requested for <strong>{{ .Email }}</strong>.
+        </p>
+        <p style="margin: 0 0 10px;">
+          If you did not register for an account on Campus 360, you can safely disregard this email.
+        </p>
+        <p style="margin: 0; color: #475569;">
+          © 2026 Campus 360 • NKOCET Solapur • Team NEXUS
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

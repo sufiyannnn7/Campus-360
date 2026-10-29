@@ -20,7 +20,7 @@ export default function EventDetail() {
   
   // Fallback to rich local data if API returns null
   const defaultEvent = UPCOMING_EVENTS_DATA.find((e) => e.id === eventId) || UPCOMING_EVENTS_DATA[0]
-  const activeEvent = apiEvent || defaultEvent
+  const activeEvent: any = apiEvent || defaultEvent
 
   const [isRegistered, setIsRegistered] = useState(false)
   const [showPassModal, setShowPassModal] = useState(false)
@@ -134,6 +134,22 @@ export default function EventDetail() {
                 <p className="font-bold text-emerald-600 dark:text-emerald-400">Verified QR Digital Badge</p>
               </div>
             </div>
+
+            {/* Event Photo Gallery */}
+            {((activeEvent.galleryUrls && activeEvent.galleryUrls.length > 0) || (activeEvent.gallery_urls && activeEvent.gallery_urls.length > 0)) && (
+              <div className="pt-4 border-t space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                  Event Gallery & Post Media ({((activeEvent.galleryUrls || activeEvent.gallery_urls) || []).length} Photos)
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {((activeEvent.galleryUrls || activeEvent.gallery_urls) || []).map((imgUrl: string, idx: number) => (
+                    <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border bg-muted/20 group">
+                      <img src={imgUrl} alt={`Event photo ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         </div>
 
@@ -176,7 +192,16 @@ export default function EventDetail() {
 
               {/* Registration Action */}
               <div className="pt-4 border-t space-y-3">
-                {isRegistered ? (
+                {new Date(rawDate).getTime() < Date.now() || activeEvent.status === "past" || activeEvent.status === "completed" ? (
+                  <div className="p-3.5 rounded-xl bg-muted/60 border text-center space-y-1">
+                    <Badge variant="secondary" className="font-bold text-[10px] uppercase tracking-wider bg-stone-200 text-stone-800">
+                      Concluded Event Archive
+                    </Badge>
+                    <p className="text-xs text-muted-foreground pt-1">
+                      This campus event has concluded. Registrations are closed.
+                    </p>
+                  </div>
+                ) : isRegistered ? (
                   <div className="space-y-3">
                     <div className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 p-3.5 rounded-xl flex items-center gap-2 font-bold justify-center border border-emerald-500/30 text-xs">
                       <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Confirmed Registration
@@ -191,7 +216,7 @@ export default function EventDetail() {
                 ) : (
                   <Button
                     onClick={handleRegister}
-                    className="w-full h-12 text-base font-black bg-gradient-to-r from-primary to-teal-600 hover:scale-105 transition-all text-white shadow-md gap-2 cursor-pointer"
+                    className="w-full h-12 text-base font-black bg-primary hover:bg-primary/90 transition-all text-primary-foreground shadow-md gap-2 cursor-pointer"
                   >
                     <Ticket className="h-5 w-5" /> Register Now (Free Pass)
                   </Button>

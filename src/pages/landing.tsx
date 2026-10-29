@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Hero } from "@/components/landing/hero";
 import { Stats } from "@/components/landing/stats";
-import { Testimonials } from "@/components/landing/testimonials";
+import { InstitutionalHighlights } from "@/components/landing/institutional-highlights";
 import { Footer } from "@/components/landing/footer";
 import { HeadingReveal, ParallaxBackground } from "@/components/ui/scroll-reveal";
 import { motion, useInView } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Calendar, Users, Newspaper, MapPin, LogIn,
-  UserPlus, Menu, X, ArrowRight, Ticket, Sparkles, ShieldCheck,
+  UserPlus, Menu, X, ArrowRight, Ticket, Layers, ShieldCheck,
   CheckCircle2, Clock, Search, Bell, User
 } from "lucide-react";
 import { useRef } from "react";
@@ -47,7 +48,7 @@ function EventsBentoCard() {
               </div>
             </div>
             <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-500/15 dark:text-emerald-400 dark:bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Live Registrations
+              <Ticket className="h-3.5 w-3.5" /> Live Registrations
             </span>
           </div>
 
@@ -374,7 +375,10 @@ function CredentialsBentoCard() {
 }
 
 export default function Landing() {
-  const { data: user } = useGetMe();
+  const { user: authUser } = useAuth();
+  const { data: meUser } = useGetMe();
+  const currentUser = authUser || meUser;
+  const user = currentUser;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -526,29 +530,49 @@ export default function Landing() {
               )}
             </div>
 
-            {/* Profile / Avatar element indicating logged-in student dashboard state */}
-            <Link href="/dashboard">
-              <div className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-white/8 hover:bg-white/15 border border-primary/25 transition-all cursor-pointer group">
-                <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-[#C05D38] to-[#E58D67] flex items-center justify-center text-xs font-black text-white shadow-sm">
-                  AS
-                </div>
-                <div className="text-left leading-none">
-                  <div className="text-xs font-bold text-[#FAF6F0] group-hover:text-amber-200 transition-colors">Aarav S.</div>
-                  <div className="text-[9px] text-amber-200/80 font-medium mt-0.5">Student • NKOCET</div>
-                </div>
-              </div>
-            </Link>
+            {/* Conditional Profile / Auth Buttons */}
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <Link href="/profile">
+                  <div className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-white/8 hover:bg-white/15 border border-primary/25 transition-all cursor-pointer group">
+                    <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-[#C05D38] to-[#E58D67] flex items-center justify-center text-xs font-black text-white shadow-sm uppercase overflow-hidden">
+                      {currentUser?.avatarUrl ? (
+                        <img src={currentUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : "ME"
+                      )}
+                    </div>
+                    <div className="text-left leading-none">
+                      <div className="text-xs font-bold text-[#FAF6F0] group-hover:text-amber-200 transition-colors">
+                        {currentUser?.name || "My Profile"}
+                      </div>
+                      <div className="text-[9px] text-amber-200/80 font-medium mt-0.5 capitalize">
+                        {currentUser?.role === "coordinator" ? "Club Coordinator" : (currentUser?.role || "Student")} • NKOCET
+                      </div>
+                    </div>
+                  </div>
+                </Link>
 
-            <Link href="/login">
-              <Button variant="ghost" className="font-semibold gap-1.5 text-xs text-[#D5C6BA] hover:text-[#FFFFFF] hover:bg-white/10 rounded-xl transition-all h-9 px-3">
-                <LogIn className="h-3.5 w-3.5" /> Log in
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="font-bold gap-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-craft-sm hover:scale-102 active:scale-98 transition-all rounded-xl border border-primary-border h-9 px-3">
-                <UserPlus className="h-3.5 w-3.5" /> Portal
-              </Button>
-            </Link>
+                <Link href={currentUser?.role === "admin" ? "/admin" : "/dashboard"}>
+                  <Button className="font-bold gap-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-craft-sm hover:scale-102 active:scale-98 transition-all rounded-xl border border-primary-border h-9 px-3">
+                    {currentUser?.role === "admin" ? "Admin Console" : "Dashboard"}
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <Button variant="ghost" className="font-semibold gap-1.5 text-xs text-[#D5C6BA] hover:text-[#FFFFFF] hover:bg-white/10 rounded-xl transition-all h-9 px-3">
+                    <LogIn className="h-3.5 w-3.5" /> Log in
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button className="font-bold gap-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-craft-sm hover:scale-102 active:scale-98 transition-all rounded-xl border border-primary-border h-9 px-3">
+                    <UserPlus className="h-3.5 w-3.5" /> Get Started
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -600,12 +624,12 @@ export default function Landing() {
             {/* Mobile Profile Card */}
             <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
               <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/8 border border-primary/25 cursor-pointer">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-[#C05D38] to-[#E58D67] flex items-center justify-center text-xs font-black text-white">
-                  AS
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-[#C05D38] to-[#E58D67] flex items-center justify-center text-xs font-black text-white uppercase">
+                  {user?.name ? user.name.slice(0, 2).toUpperCase() : "ST"}
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#FAF6F0]">Aarav S.</div>
-                  <div className="text-[10px] text-amber-200/80">Student Portal • NKOCET</div>
+                  <div className="text-xs font-bold text-[#FAF6F0]">{user?.name || "Student Portal"}</div>
+                  <div className="text-[10px] text-amber-200/80 capitalize">{user?.role || "Student"} • NKOCET</div>
                 </div>
               </div>
             </Link>
@@ -623,22 +647,21 @@ export default function Landing() {
                 <Icon className="h-4 w-4" /> {label}
               </Link>
             ))}
-            <div className="pt-3 border-t border-primary/20 space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200/70 px-2">Quick Demo</div>
-              <div className="grid grid-cols-2 gap-2">
-                {["student", "faculty", "coordinator", "admin"].map((role) => (
-                  <Button
-                    key={role}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDemoRoleLogin(role)}
-                    className="text-xs font-bold capitalize bg-[#2D1F18] border-primary/30 text-amber-100 hover:bg-primary/20"
-                  >
-                    {role === "coordinator" ? "Club Lead" : role.charAt(0).toUpperCase() + role.slice(1)}
+            {currentUser ? (
+              <div className="pt-3 border-t border-primary/20 space-y-2">
+                <Link href={currentUser?.role === "admin" ? "/admin" : "/dashboard"} onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button className="w-full text-xs font-bold bg-primary text-primary-foreground">
+                    {currentUser?.role === "admin" ? "Go to Admin Console" : "Go to Dashboard"}
                   </Button>
-                ))}
+                </Link>
+                <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="outline" className="w-full text-xs font-semibold bg-[#2D1F18] border-primary/30 text-amber-100">
+                    Edit Profile
+                  </Button>
+                </Link>
               </div>
-              <div className="flex gap-2 pt-2 border-t border-primary/20">
+            ) : (
+              <div className="flex gap-2 pt-3 border-t border-primary/20">
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex-1">
                   <Button variant="outline" className="w-full text-xs font-semibold bg-[#2D1F18] border-primary/30 text-amber-100">Log in</Button>
                 </Link>
@@ -646,7 +669,7 @@ export default function Landing() {
                   <Button className="w-full text-xs font-semibold bg-primary text-primary-foreground">Get Started</Button>
                 </Link>
               </div>
-            </div>
+            )}
           </motion.div>
         )}
       </motion.header>
@@ -676,22 +699,17 @@ export default function Landing() {
           id="modules"
           className="py-20 md:py-28 bg-muted/20 border-b min-h-screen flex flex-col justify-center relative overflow-hidden"
         >
-          <ParallaxBackground speed={0.2}>
-            <div className="absolute top-16 left-1/3 w-[520px] h-[520px] bg-primary/8 rounded-full blur-3xl" />
-            <div className="absolute bottom-16 right-8 w-[400px] h-[400px] bg-secondary/8 rounded-full blur-3xl" />
-          </ParallaxBackground>
-
           <div className="container mx-auto max-w-7xl px-4 space-y-14 relative z-10">
 
             <HeadingReveal
               badge="Dedicated Section Modules"
-              badgeIcon={<Sparkles className="h-3.5 w-3.5" />}
+              badgeIcon={<Layers className="h-3.5 w-3.5 text-primary" />}
               title="Explore NKOCET Modules"
               subtitle="Click any dedicated module below or use the top navigation menu to access complete views for events, student societies, live schedules, news bulletins, and venue addresses."
               centered
             />
 
-            {/* Asymmetrical Bento Grid with varied sizes and shapes */}
+            {/* Modules Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               <EventsBentoCard />
               <ClubsBentoCard />
@@ -704,8 +722,8 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ── Testimonials ── */}
-        <Testimonials />
+        {/* ── Institutional Milestones ── */}
+        <InstitutionalHighlights />
 
       </main>
 

@@ -10,9 +10,10 @@
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
     "types": ["node", "vite/client"],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": ["./src/*"],
+      "@workspace/api-client-react": ["./src/lib/api-client-react.ts"]
+    },
+    "skipLibCheck": true
   }
 }

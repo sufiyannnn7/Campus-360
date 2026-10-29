@@ -51,11 +51,11 @@ export default function CalendarPage() {
     limit: 100,
   })
 
-  const events = Array.isArray(data) ? data : (data?.events || UPCOMING_EVENTS_DATA)
+  const events = Array.isArray(data) ? data : ((data as any)?.events || UPCOMING_EVENTS_DATA)
 
   // Filter events based on active layer toggles
   const filteredEvents = useMemo(() => {
-    return events.filter(event => {
+    return events.filter((event: any) => {
       const cat = (event.category || "").toLowerCase()
       if (cat.includes("academic") && !layers.academic) return false
       if (cat.includes("cultural") && !layers.cultural) return false
@@ -110,7 +110,7 @@ export default function CalendarPage() {
   }, [currentDate])
 
   const getEventsForDay = (day: Date) => {
-    return filteredEvents.filter(event => {
+    return filteredEvents.filter((event: any) => {
       const rawDate = event.startDatetime || event.date
       if (!rawDate) return false
       const eventDate = new Date(rawDate)
@@ -322,7 +322,7 @@ export default function CalendarPage() {
 
                   {/* BIG PROMINENT EVENT CARDS INSIDE COMPACT DAY CELLS */}
                   <div className="space-y-1 overflow-hidden flex-1 flex flex-col justify-start">
-                    {dayEvents.slice(0, 2).map((evt) => (
+                    {dayEvents.slice(0, 2).map((evt: any) => (
                       <div
                         key={evt.id}
                         onClick={(e) => {
@@ -391,7 +391,7 @@ export default function CalendarPage() {
               const dayEvents = getEventsForDay(day)
               return (
                 <div key={day.toISOString()} className="p-2 space-y-2">
-                  {dayEvents.map((evt) => (
+                  {dayEvents.map((evt: any) => (
                     <div
                       key={evt.id}
                       onClick={() => setSelectedEvent(evt)}
@@ -431,7 +431,7 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {getEventsForDay(currentDate).map((evt) => (
+                {getEventsForDay(currentDate).map((evt: any) => (
                   <div
                     key={evt.id}
                     onClick={() => setSelectedEvent(evt)}
@@ -485,7 +485,7 @@ export default function CalendarPage() {
               <CalendarIcon className="h-5 w-5 text-primary" /> Upcoming Campus Agenda
             </h2>
             <div className="space-y-2.5">
-              {filteredEvents.map((evt) => (
+              {filteredEvents.map((evt: any) => (
                 <div
                   key={evt.id}
                   onClick={() => setSelectedEvent(evt)}

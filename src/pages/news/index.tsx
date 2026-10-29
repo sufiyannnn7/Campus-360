@@ -16,7 +16,7 @@ export default function News() {
     q: search || undefined
   })
 
-  const newsList = (Array.isArray(data) ? data : (data?.news || LATEST_NEWS_DATA)).filter((article: any) => {
+  const newsList = (Array.isArray(data) ? data : ((data as any)?.news || LATEST_NEWS_DATA)).filter((article: any) => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
     return (

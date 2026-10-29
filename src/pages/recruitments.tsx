@@ -10,6 +10,7 @@ import { StaggerContainer, StaggerItem, ScrollReveal } from "@/components/ui/scr
 import { Calendar, Users, Briefcase, ArrowRight, CheckCircle2, Clock, Upload, FileText, UserCheck, ChevronRight, Layers } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { recruitmentsService } from "@/api/services/recruitments.service"
 
 type ViewTab = "board" | "kanban" | "volunteers"
 type AppStage = "applied" | "under_review" | "shortlisted" | "interview" | "accepted" | "rejected"
@@ -50,25 +51,24 @@ export default function Recruitments() {
     if (!selectedRecruitment) return
     setSubmitting(true)
     try {
-      const res = await fetch(`/api/recruitments/${selectedRecruitment.id}/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverLetter, portfolioUrl })
+      await recruitmentsService.applyRecruitment(selectedRecruitment.id, {
+        statementOfPurpose: coverLetter,
+        portfolioUrl: portfolioUrl || undefined,
+        applicantName: me?.name,
+        applicantEmail: me?.email,
       })
-
-      if (!res.ok) throw new Error("Application failed")
 
       toast({
         title: "Application Submitted!",
-        description: `Your application for ${selectedRecruitment.title} has been received.`
+        description: `Your application for ${selectedRecruitment.role || selectedRecruitment.title} has been received.`
       })
       setSelectedRecruitment(null)
       setCoverLetter("")
       setPortfolioUrl("")
-    } catch (err) {
+    } catch (err: any) {
       toast({
         title: "Submission Error",
-        description: "Could not submit application. Please check requirements.",
+        description: err?.message || "Could not submit application. Please check requirements.",
         variant: "destructive"
       })
     } finally {

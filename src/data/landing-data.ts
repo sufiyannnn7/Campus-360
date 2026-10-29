@@ -9,6 +9,7 @@ export interface LandingStat {
 export interface UpcomingEventItem {
   id: number;
   title: string;
+  description?: string;
   date: string;
   startDatetime?: string;
   time: string;
@@ -37,7 +38,10 @@ export interface LatestNewsItem {
   title: string;
   category: string;
   date: string;
+  publishedAt?: string;
   excerpt: string;
+  body?: string;
+  content?: string;
   author: string;
   readTime: string;
   imageUrl: string;

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: campus-360
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist/public
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_BASE_URL
+        value: /api
+      - key: VITE_ENABLE_MOCK_FALLBACK
+        value: "true"
