@@ -60,15 +60,67 @@ SELECT id, name, email, role, department FROM public.profiles WHERE email = 'suf
 
 ---
 
-## 3. Set Redirect URLs (So Users Land on Login After Clicking)
+---
+
+## 3. How to Apply the Custom Campus 360 Reset Password Email Template
+
+1. Open your **Supabase Project Dashboard**: [https://supabase.com/dashboard](https://supabase.com/dashboard)
+2. In the left navigation, click **Authentication** > **Email Templates**.
+3. Click on the **"Reset Password"** tab.
+4. Set the **Subject line**:
+   ```
+   Reset Your Campus 360 Password | NKOCET
+   ```
+5. Replace the entire **Message body** with the HTML code from:
+   [`supabase/email-templates/reset-password.html`](file:///d:/sufiyan%20projects/Campus-360-main-final-boss/supabase/email-templates/reset-password.html)
+6. Click **Save Changes**.
+
+---
+
+## 4. Set Redirect URLs (For Password Recovery & Email Confirmation)
 
 1. In Supabase Dashboard, navigate to **Authentication** > **URL Configuration**.
 2. Set **Site URL** to:
-   - For local development: `http://localhost:5180` (or `http://localhost:5173`)
-   - For production: Your deployed web domain (e.g. `https://campus360.nkocet.ac.in`)
-3. Under **Redirect URLs**, add:
+   ```
+   https://campus360nkocet.onrender.com
+   ```
+3. Under **Redirect URLs**, make sure the following entries are added:
+   - `https://campus360nkocet.onrender.com/**`
+   - `https://campus360nkocet.onrender.com/reset-password`
+   - `https://campus360nkocet.onrender.com/login`
    - `http://localhost:5180/**`
-   - `http://localhost:5180/login?confirmed=true`
-   - `http://localhost:5173/**`
-   - Your production URL with `/**`
+   - `http://localhost:5180/reset-password`
+   - `http://localhost:5180/login`
 4. Click **Save**.
+
+---
+
+## 5. Prevent Email Sending Rate Limit Errors (Supabase Built-in SMTP)
+
+The Supabase default email service is restricted to **3-4 emails per hour** globally. When testing signups or password resets repeatedly, Supabase returns error `429: over_email_send_rate_limit` ("Email rate limit exceeded").
+
+### To enable unlimited, reliable delivery via Custom SMTP:
+1. In Supabase Dashboard, go to **Project Settings** > **Authentication**.
+2. Scroll to **SMTP Settings** and toggle **Enable Custom SMTP**.
+3. Enter your SMTP provider credentials:
+   - **Sender email**: e.g., `noreply@nkocet.org` or your verified Gmail / Resend / SendGrid / Brevo address
+   - **Sender name**: `Campus 360 - NKOCET`
+   - **Host**: e.g., `smtp.resend.com` (port 465 or 587) or `smtp.gmail.com`
+   - **User**: your SMTP username / API key
+   - **Password**: your SMTP password / API token
+4. Click **Save Changes**.
+
+---
+
+## 6. Fix Render HTTP 404 on Direct Page Refresh (SPA Fallback Rewrite)
+
+When hosting a Single Page Application (React + Vite) on Render Static Sites, direct navigation to subpaths like `/coordinator`, `/login`, or `/reset-password` returns `404 Not Found` unless a fallback rewrite is configured.
+
+### In Render Dashboard:
+1. Go to your Static Site service (`campus360nkocet`) on [dashboard.render.com](https://dashboard.render.com).
+2. Click **Redirects/Rewrites** in the sidebar.
+3. Click **Add Rule**:
+   - **Type**: `Rewrite` (NOT Redirect)
+   - **Source**: `/*`
+   - **Destination**: `/index.html`
+4. Click **Save Changes**. All browser refreshes and direct links will now correctly load the SPA!

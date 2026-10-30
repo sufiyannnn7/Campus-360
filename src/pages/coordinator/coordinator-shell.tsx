@@ -30,6 +30,9 @@ import {
   X,
   FileCheck2,
   Plus,
+  Lock,
+  LogIn,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,13 +78,28 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function CoordinatorShell({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { clubs, activeClub, setActiveClubId, isLoading } = useCoordinator();
   const [location] = useLocation();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
+  // Show spinner while checking auth session on fresh load or new device
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground font-medium">Verifying coordinator session...</p>
+      </div>
+    );
+  }
+
+  // Require login if not authenticated (prevents showing elevation form to unauthenticated users)
+  if (!user) {
+    return <CoordinatorLoginRequiredView />;
+  }
+
   // Check role authorization
-  const isAuthorized = user?.role === "coordinator" || user?.role === "admin";
+  const isAuthorized = user.role === "coordinator" || user.role === "admin";
 
   if (!isAuthorized) {
     return <CoordinatorAccessRequestView user={user} />;
@@ -616,6 +634,58 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function CoordinatorLoginRequiredView() {
+  return (
+    <div className="max-w-md mx-auto my-12 space-y-6 animate-in fade-in-50 duration-300">
+      <Card className="border shadow-md overflow-hidden text-center p-6 sm:p-8">
+        <div className="h-16 w-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto border border-amber-500/20 shadow-2xs mb-4">
+          <Lock className="h-8 w-8" />
+        </div>
+
+        <CardHeader className="p-0 space-y-2 mb-6">
+          <CardTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+            Authentication Required
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            The Campus 360 Coordinator Portal is restricted to authorized NKOCET club leads, faculty advisors, and administrators.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="p-0 space-y-4">
+          <div className="p-3.5 rounded-xl bg-muted/60 border text-xs text-muted-foreground text-left space-y-1.5">
+            <p className="font-semibold text-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Access Information:
+            </p>
+            <ul className="list-disc list-inside space-y-1 pl-1">
+              <li>Sign in with your verified NKOCET credentials.</li>
+              <li>Students wishing to lead a club can submit an elevation request.</li>
+              <li>Public clubs and events remain open to all visitors.</li>
+            </ul>
+          </div>
+
+          <div className="pt-2 flex flex-col gap-2.5">
+            <Link href="/login?redirect=/coordinator" className="w-full">
+              <Button className="w-full text-xs font-bold h-10 cursor-pointer gap-2 shadow-xs">
+                <LogIn className="h-4 w-4" /> Sign In to Access Portal
+              </Button>
+            </Link>
+            <Link href="/signup" className="w-full">
+              <Button variant="outline" className="w-full text-xs font-semibold h-10 cursor-pointer">
+                Create Student Account
+              </Button>
+            </Link>
+            <Link href="/" className="w-full">
+              <Button variant="ghost" className="w-full text-xs text-muted-foreground h-9 cursor-pointer">
+                Return to Campus Home
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

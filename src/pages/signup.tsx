@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, ShieldCheck, UserCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, ShieldCheck, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -67,10 +67,12 @@ export default function Signup() {
     },
   });
 
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
+
   async function onSubmit(values: z.infer<typeof signupSchema>) {
     try {
       setIsSubmitting(true);
-      await signup({
+      const res = await signup({
         name: values.name.trim(),
         email: values.email.trim(),
         password: values.password,
@@ -81,7 +83,11 @@ export default function Signup() {
         division: values.division?.trim(),
         phone: values.phone?.trim(),
       });
-      setLocation("/dashboard");
+      if (res?.emailConfirmationRequired) {
+        setCreatedEmail(values.email.trim().toLowerCase());
+      } else {
+        setLocation("/dashboard");
+      }
     } catch (err: any) {
       toast({
         title: "Registration Failed",
@@ -181,14 +187,55 @@ export default function Signup() {
         </div>
 
         <div className="max-w-xl w-full mx-auto my-6 space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              Create student account
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Enter your academic and personal details to register with Campus 360.
-            </p>
-          </div>
+          {createdEmail ? (
+            <div className="space-y-6 animate-in fade-in-50 duration-300">
+              <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shadow-2xs">
+                <CheckCircle2 className="h-7 w-7" />
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Verification email sent!
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Your student account has been registered for <strong className="text-foreground">{createdEmail}</strong>. A verification link has been sent to your inbox.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-card border text-xs text-muted-foreground space-y-2 shadow-2xs">
+                <p className="font-semibold text-foreground">What to do next:</p>
+                <ol className="list-decimal list-inside space-y-1.5 pl-1">
+                  <li>Open the verification email sent from Campus 360 / Supabase Auth.</li>
+                  <li>Click <span className="font-semibold text-foreground">"Confirm email address"</span> to activate your account.</li>
+                  <li>Once activated, sign in below to access your student dashboard and campus clubs.</li>
+                </ol>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                <Link href="/login" className="w-full">
+                  <Button className="w-full text-xs font-bold h-10 cursor-pointer">
+                    Proceed to Sign In
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  className="w-full text-xs font-semibold h-10 cursor-pointer"
+                  onClick={() => setCreatedEmail(null)}
+                >
+                  Create Another Account
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Create student account
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Enter your academic and personal details to register with Campus 360.
+                </p>
+              </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -394,7 +441,9 @@ export default function Signup() {
               </Button>
             </form>
           </Form>
-        </div>
+        </>
+      )}
+    </div>
 
         <div className="text-center text-xs text-muted-foreground pt-4 lg:hidden">
           <div className="flex justify-center gap-4">

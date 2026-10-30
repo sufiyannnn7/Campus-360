@@ -31,7 +31,8 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      setLocation("/dashboard");
+      const redirectParam = new URLSearchParams(window.location.search).get("redirect");
+      setLocation(redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dashboard");
     }
   }, [user, setLocation]);
 
@@ -54,7 +55,8 @@ export default function Login() {
         title: "Welcome back!",
         description: "Authenticated successfully to Campus 360.",
       });
-      setLocation("/dashboard");
+      const redirectParam = new URLSearchParams(window.location.search).get("redirect");
+      setLocation(redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dashboard");
     } catch (err: any) {
       toast({
         title: "Authentication Failed",
@@ -167,6 +169,13 @@ export default function Login() {
             </div>
           )}
 
+          {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("reset") === "true" && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-2.5 text-xs font-semibold animate-in fade-in-50 duration-300">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>Password successfully updated! Please sign in with your new password below.</span>
+            </div>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -197,6 +206,12 @@ export default function Login() {
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel className="text-xs font-bold text-foreground">Password</FormLabel>
+                      <Link
+                        href="/forgot-password"
+                        className="text-xs font-semibold text-primary hover:underline transition-colors"
+                      >
+                        Forgot password?
+                      </Link>
                     </div>
                     <FormControl>
                       <div className="relative">

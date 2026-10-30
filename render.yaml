@@ -1,7 +1,7 @@
 services:
   - type: web
     name: campus-360
-    env: static
+    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist/public
     routes:

@@ -19,7 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
-  signup: (payload: SignupPayload) => Promise<void>;
+  signup: (payload: SignupPayload) => Promise<any>;
   logout: () => Promise<void>;
   switchDemoRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await authService.signup(payload);
       if (res?.emailConfirmationRequired) {
         toast.info("Account created! Please check your email to confirm your account before logging in.");
-        return;
+        return res;
       }
       if (res?.user) {
         setUser(res.user);
@@ -120,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast.success("Account created successfully!");
+      return res;
     } catch (err: any) {
       toast.error(err.message || "Failed to create account");
       throw err;

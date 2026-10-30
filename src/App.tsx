@@ -7,6 +7,8 @@ import { ErrorBoundary } from "@/components/common/error-boundary";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import Events from "@/pages/events/index";
 import EventDetail from "@/pages/events/detail";
@@ -50,6 +52,8 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
 
       <Route path="/dashboard"><PageWrapper component={Dashboard} /></Route>
       <Route path="/admin"><PageWrapper component={Dashboard} /></Route>

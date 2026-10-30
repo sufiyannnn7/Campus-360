@@ -171,7 +171,7 @@ export const authService = {
     }
 
     if (authError || !authData?.user) {
-      throw new Error(authError?.message || "Failed to log in with Supabase.");
+      throw new Error(formatAuthError(authError));
     }
 
     const token = authData.session?.access_token || "auth-session-token";
@@ -268,7 +268,7 @@ export const authService = {
     });
 
     if (authError) {
-      throw new Error(authError.message || "Failed to sign up with Supabase.");
+      throw new Error(formatAuthError(authError));
     }
 
     if (!authData.user) {
@@ -441,6 +441,100 @@ export const authService = {
     localStorage.setItem("campus360_user", JSON.stringify(resolved));
     return resolved;
   },
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new Error("Email address is required.");
+    }
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        message: "Offline demo: Password reset link simulated. Please check your inbox.",
+      };
+    }
+
+    const redirectTo = typeof window !== "undefined"
+      ? `${window.location.origin}/reset-password`
+      : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo,
+    });
+
+    if (error) {
+      throw new Error(formatAuthError(error));
+    }
+
+    return {
+      success: true,
+      message: "Password recovery email sent! Please check your inbox for the reset link.",
+    };
+  },
+
+  async resetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("Password must be at least 6 characters.");
+    }
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        message: "Offline demo: Password updated successfully.",
+      };
+    }
+
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw new Error(formatAuthError(error));
+    }
+
+    if (!data.user) {
+      throw new Error("Failed to update password. Your recovery session may have expired.");
+    }
+
+    return {
+      success: true,
+      message: "Password updated successfully! You can now sign in with your new credentials.",
+    };
+  },
 };
+
+export function formatAuthError(err: any): string {
+  if (!err) return "An unexpected authentication error occurred.";
+  const rawMsg = err.message || err.error_description || String(err);
+  const msg = rawMsg.toLowerCase();
+
+  if (msg.includes("rate limit") || msg.includes("over_email_send_rate_limit") || msg.includes("too many requests") || err.status === 429) {
+    return "Email rate limit exceeded by Supabase. Please wait a few minutes before trying again or configure a custom SMTP provider in your Supabase dashboard.";
+  }
+  if (msg.includes("error sending confirmation mail") || msg.includes("error sending email") || msg.includes("smtp") || msg.includes("554") || msg.includes("connection refused")) {
+    return "Failed to send email. The Supabase project's SMTP mailer encountered a delivery failure. Please check your custom SMTP settings in the Supabase dashboard.";
+  }
+  if (msg.includes("already registered") || msg.includes("user_already_exists") || msg.includes("identity already exists")) {
+    return "An account with this email address already exists. Please sign in or use Forgot Password.";
+  }
+  if (msg.includes("invalid login credentials") || msg.includes("invalid_grant")) {
+    return "Invalid email or password. Please verify your credentials and try again.";
+  }
+  if (msg.includes("email not confirmed")) {
+    return "Your email address has not been confirmed yet. Please verify your inbox or request a new confirmation email.";
+  }
+  if (msg.includes("weak_password") || msg.includes("password should be at least")) {
+    return "Password is too weak. Please choose a password with at least 6 characters.";
+  }
+  if (msg.includes("invalid email") || msg.includes("unable to validate email")) {
+    return "The email address format is invalid. Please enter a valid email address.";
+  }
+  if (msg.includes("failed to fetch") || msg.includes("network error") || msg.includes("timeout")) {
+    return "Network connection to Supabase authentication server failed. Please check your internet connection.";
+  }
+
+  return rawMsg || "An authentication error occurred. Please try again.";
+}
 
 export default authService;
