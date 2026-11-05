@@ -1,10 +1,11 @@
 import { useListNotifications, useMarkAllNotificationsRead } from "@workspace/api-client-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Bell, CheckCheck, Info, Ticket, Star, Users } from "lucide-react"
+import { Bell, CheckCheck, Info, Ticket, Star, Users, Trash2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { getListNotificationsQueryKey } from "@workspace/api-client-react"
 import { cn } from "@/lib/utils"
+import { notificationsService } from "@/api/services/notifications.service"
 
 export default function Notifications() {
   const { data, isLoading } = useListNotifications({})
@@ -35,9 +36,17 @@ export default function Notifications() {
           <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
           <p className="text-muted-foreground">Stay updated on your activities.</p>
         </div>
-        <Button variant="outline" onClick={handleMarkAll} disabled={markAllMut.isPending || !data?.some((n: any) => !n.readStatus)}>
-          <CheckCheck className="mr-2 h-4 w-4" /> Mark all as read
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={async () => {
+            await notificationsService.clearAllNotifications();
+            queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+          }} className="text-xs text-muted-foreground hover:text-destructive">
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear all
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleMarkAll} disabled={markAllMut.isPending || !data?.some((n: any) => !n.readStatus)} className="text-xs">
+            <CheckCheck className="mr-1.5 h-3.5 w-3.5" /> Mark all as read
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -63,14 +72,29 @@ export default function Notifications() {
                  </div>
                  <div className="flex-1">
                     <p className="text-sm font-semibold">{notif.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{notif.body}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{notif.body || notif.message}</p>
                     <p className="text-xs text-muted-foreground/60 mt-2 uppercase tracking-wider">
-                      {new Date(notif.createdAt).toLocaleString()}
+                      {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : notif.timestamp}
                     </p>
                  </div>
-                 {!notif.readStatus && (
-                    <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0 shadow-[0_0_8px_rgba(79,70,229,0.8)]" />
-                 )}
+                 <div className="flex items-center gap-2 shrink-0">
+                   {!notif.readStatus && (
+                     <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(79,70,229,0.8)]" />
+                   )}
+                   <Button
+                     variant="ghost"
+                     size="icon"
+                     className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                     title="Delete notification"
+                     onClick={async (e) => {
+                       e.stopPropagation();
+                       await notificationsService.deleteNotification(notif.id);
+                       queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+                     }}
+                   >
+                     <Trash2 className="h-3.5 w-3.5" />
+                   </Button>
+                 </div>
               </div>
             ))
           )}

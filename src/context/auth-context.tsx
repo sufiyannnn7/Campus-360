@@ -70,18 +70,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchCurrentUser();
 
+    const handleRoleChanged = (e: any) => {
+      const newRole = e.detail?.role;
+      const msg = e.detail?.message || "Your role has been updated by the admin!";
+      if (newRole) {
+        setRole(newRole);
+      }
+      fetchCurrentUser();
+      toast.success(msg);
+    };
+
+    window.addEventListener("campus360_role_changed", handleRoleChanged);
+
+    let subscription: any = null;
     if (isSupabaseConfigured()) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sub = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
           fetchCurrentUser();
         } else {
           setUser(null);
         }
       });
-      return () => {
-        subscription.unsubscribe();
-      };
+      subscription = sub.data.subscription;
     }
+
+    return () => {
+      window.removeEventListener("campus360_role_changed", handleRoleChanged);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [role]);
 
   const login = async (credentials: LoginCredentials) => {

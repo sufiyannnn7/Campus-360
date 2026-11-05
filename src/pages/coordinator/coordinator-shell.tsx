@@ -256,7 +256,7 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
   const [targetRole, setTargetRole] = useState<"coordinator" | "faculty">("coordinator");
   const [targetClubName, setTargetClubName] = useState("Coding Club NKOCET");
   const [department, setDepartment] = useState(user?.department || "Computer Science & Engineering");
-  const [prn, setPrn] = useState(user?.prn || "NK2023CS042");
+  const [prn, setPrn] = useState(user?.prn || "");
   const [justification, setJustification] = useState("");
   const [newClubName, setNewClubName] = useState("");
   const [newClubCategory, setNewClubCategory] = useState("Technical");
@@ -327,14 +327,18 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
         });
       }
 
-      const selectedClub = CLUB_OPTIONS.find((c) => c.name === targetClubName);
-      const finalClubName = isNewClub ? newClubName.trim() : targetClubName;
+      const isFaculty = targetRole === "faculty";
+      const selectedClub = isFaculty ? undefined : CLUB_OPTIONS.find((c) => c.name === targetClubName);
+      const finalClubName = isFaculty ? undefined : (isNewClub ? newClubName.trim() : targetClubName);
       await coordinatorService.requestRoleElevation({
         targetRole,
-        clubId: isNewClub ? undefined : (selectedClub?.id || 1),
+        clubId: isFaculty || isNewClub ? undefined : selectedClub?.id,
         clubName: finalClubName,
         department,
         prn,
+        userId: user?.id,
+        userName: user?.name,
+        userEmail: user?.email,
         justification: isNewClub
           ? `[NEW CLUB PROPOSAL: ${finalClubName} (${newClubCategory})] Mission: ${newClubDescription.trim() || "Active society"} | Justification: ${justification.trim()}`
           : justification.trim(),
@@ -358,16 +362,7 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
     }
   };
 
-  const handleDemoInstantApprove = () => {
-    localStorage.setItem("demo_role", targetRole);
-    toast({
-      title: "Demo Role Activated!",
-      description: `Role elevated to ${targetRole}. Reloading hub...`,
-    });
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
-  };
+  
 
   return (
     <div className="max-w-2xl mx-auto my-8 space-y-6 animate-in fade-in-50 duration-300">
@@ -391,9 +386,9 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-foreground">Application Sent to System Admin</h3>
+            <h3 className="text-lg font-black text-foreground">Request Successfully Sent to Admin</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-              Your request to become a <strong className="capitalize text-foreground font-bold">{targetRole === "coordinator" ? `Club Coordinator (${targetClubName})` : "Faculty Advisor"}</strong> is now pending admin review in the Admin Console.
+              Your request to become a <strong className="capitalize text-foreground font-bold">{targetRole === "coordinator" ? `Club Coordinator (${targetClubName})` : "Faculty Advisor"}</strong> has been dispatched to the Administrator. An admin notification was sent for review. You will be notified as soon as your request is accepted.
             </p>
           </div>
 
@@ -421,13 +416,15 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" size="sm" className="text-xs font-semibold">
               <Link href="/dashboard">
-                Go to Admin Dashboard to Review & Approve
+                Return to Dashboard
               </Link>
             </Button>
-            <Button onClick={handleDemoInstantApprove} className="gap-2 bg-primary font-bold">
-              <Sparkles className="h-4 w-4" /> Demo: Instant Approve & Enter Hub
+            <Button asChild size="sm" className="text-xs font-bold bg-primary text-primary-foreground gap-1.5">
+              <Link href="/notifications">
+                <Bell className="h-3.5 w-3.5" /> Check Notifications
+              </Link>
             </Button>
           </div>
         </Card>
@@ -448,6 +445,18 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
           </CardHeader>
 
           <CardContent>
+            {/* Applicant Profile Badge */}
+            <div className="mb-4 p-2.5 rounded-xl bg-muted/30 border flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Applicant Account:</span>
+                <span className="font-bold text-foreground">{user?.name || "Student Applicant"}</span>
+                <span className="text-[11px] text-muted-foreground">({user?.email || "student@nkocet.ac.in"})</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold">
+                Role: {user?.role || "student"}
+              </Badge>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Selection */}
               <div className="space-y-1.5">
@@ -610,15 +619,7 @@ function CoordinatorAccessRequestView({ user }: { user: any }) {
                 </Button>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDemoInstantApprove}
-                    className="text-xs font-semibold gap-1.5"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Demo Instant Access
-                  </Button>
+                  
                   <Button
                     type="submit"
                     size="sm"

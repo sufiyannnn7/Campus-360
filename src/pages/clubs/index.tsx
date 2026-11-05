@@ -15,15 +15,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { StaggerContainer, StaggerItem, ScrollReveal } from "@/components/ui/scroll-reveal"
-import { Search, Users, ArrowLeft, Building2, ChevronDown, Plus } from "lucide-react"
+import { Search, Users, ArrowLeft, Building2, ChevronDown, Plus, ShieldCheck } from "lucide-react"
 import { Link } from "wouter"
 import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { FEATURED_CLUBS_DATA } from "@/data/landing-data"
 import { clubsService } from "@/api/services/clubs.service"
 import { toast } from "sonner"
+import { useAuth } from "@/context/auth-context"
+import { ImageUploadDropzone } from "@/components/ui/image-upload-dropzone"
 
 export default function Clubs() {
+  const { user } = useAuth()
+  const isApprovedCoordinator = user?.role === "coordinator" || user?.role === "admin"
   const [search, setSearch] = useState("")
   const [limit, setLimit] = useState<number>(6)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -33,6 +37,7 @@ export default function Clubs() {
   const [newClubAdvisor, setNewClubAdvisor] = useState("")
   const [newClubDesc, setNewClubDesc] = useState("")
   const [newClubBanner, setNewClubBanner] = useState("")
+  const [tempClubId, setTempClubId] = useState(() => "new_" + Date.now())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [createdClubs, setCreatedClubs] = useState<any[]>([])
   
@@ -64,6 +69,10 @@ export default function Clubs() {
 
   const handleCreateClub = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isApprovedCoordinator) {
+      toast.error("Only approved club coordinators can charter a new club.")
+      return
+    }
     if (!newClubName.trim()) {
       toast.error("Club name is required")
       return
@@ -87,6 +96,7 @@ export default function Clubs() {
       setNewClubAdvisor("")
       setNewClubDesc("")
       setNewClubBanner("")
+      setTempClubId("new_" + Date.now())
       toast.success(`Club "${created.name}" created and added to campus directory!`)
     } catch (err: any) {
       toast.error(err?.message || "Failed to create club")
@@ -117,13 +127,14 @@ export default function Clubs() {
               Showing {visibleClubs.length} of {fullClubsList.length} Clubs
             </Badge>
 
+            {isApprovedCoordinator ? (
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="h-7 px-3 text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs cursor-pointer">
                   <Plus className="h-3.5 w-3.5" /> Create New Club
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-black flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" /> Create New Campus Club
@@ -192,15 +203,15 @@ export default function Clubs() {
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold">Banner Image URL (optional)</Label>
-                    <Input
-                      placeholder="https://images.unsplash.com/..."
-                      value={newClubBanner}
-                      onChange={(e) => setNewClubBanner(e.target.value)}
-                      className="text-xs h-9 bg-background"
-                    />
-                  </div>
+                  <ImageUploadDropzone
+                    label="Club Banner Image (optional)"
+                    value={newClubBanner}
+                    onChange={setNewClubBanner}
+                    aspect="banner"
+                    assetType="banner"
+                    tempId={tempClubId}
+                    description="Drag & drop or select from device. Auto-compresses and saves to storage."
+                  />
 
                   <div className="pt-2 flex justify-end gap-2">
                     <Button
@@ -224,6 +235,13 @@ export default function Clubs() {
                 </form>
               </DialogContent>
             </Dialog>
+            ) : (
+              <Link href="/coordinator">
+                <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs font-semibold gap-1.5 border-dashed text-muted-foreground hover:text-primary cursor-pointer">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Apply as Coordinator
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </ScrollReveal>

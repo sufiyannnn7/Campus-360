@@ -26,6 +26,17 @@ import {
   RecruitmentStatus,
 } from "@/types/coordinator";
 
+export interface ClubApprovalItem {
+  id: number;
+  clubId?: number;
+  clubName: string;
+  changeType: string;
+  submittedBy: string;
+  submittedAt?: string;
+  payload?: any;
+  status: "pending" | "approved" | "rejected";
+}
+
 export interface RoleElevationRequest {
   id: number;
   userId: string;
@@ -1432,79 +1443,177 @@ export const coordinatorService = {
     department?: string;
     prn?: string;
     justification: string;
+    userId?: string;
+    userName?: string;
+    userEmail?: string;
   }): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      const stored = JSON.parse(localStorage.getItem("campus360_role_requests") || "[]");
-      const newReq: RoleElevationRequest = {
-        id: Date.now(),
-        userId: "current-user",
-        userName: "Sufiyan Shaikh",
-        userEmail: "sufiyan.shaikh@nkocet.ac.in",
-        targetRole: params.targetRole,
-        clubId: params.clubId,
-        clubName: params.clubName || (params.clubId === 1 ? "Coding Club NKOCET" : "Robotics & Automation Society"),
-        department: params.department || "Computer Science & Engineering",
-        prn: params.prn || "NK2023CS042",
-        justification: params.justification,
-        status: "pending",
-        submittedAt: new Date().toISOString(),
-      };
-      stored.unshift(newReq);
-      localStorage.setItem("campus360_role_requests", JSON.stringify(stored));
-      return;
-    }
+    // 1. Resolve real user details
+    let realUserId = params.userId || "current-user";
+    let realUserName = params.userName || "";
+    let realUserEmail = params.userEmail || "";
+    let realDepartment = params.department || "";
+    let realPrn = params.prn || "";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Please log in to submit a role elevation request.");
-
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-
-    const payload = {
-      requester_id: user.id,
-      requester_name: profile?.name || user.email?.split("@")[0] || "Applicant",
-      requester_email: user.email,
-      target_role: params.targetRole,
-      club_id: params.clubId || null,
-      club_name: params.clubName || null,
-      department: params.department || profile?.department || null,
-      prn: params.prn || profile?.prn || null,
-      justification: params.justification,
-    };
-
-    let insertError = null;
     try {
-      const { error } = await supabase.from("approval_requests").insert({
-        club_id: params.clubId || null,
-        request_type: "role_elevation",
-        payload,
-        status: "pending",
-        submitted_by: user.id,
-      });
-      insertError = error;
-    } catch (err: any) {
-      insertError = err;
+      const cached = localStorage.getItem("campus360_user");
+      if (cached) {
+        const u = JSON.parse(cached);
+        if (!realUserId || realUserId === "current-user") realUserId = u.id || realUserId;
+        if (!realUserName) realUserName = u.name || realUserName;
+        if (!realUserEmail) realUserEmail = u.email || realUserEmail;
+        if (!realDepartment) realDepartment = u.department || realDepartment;
+        if (!realPrn) realPrn = u.prn || realPrn;
+      }
+    } catch {}
+
+    const targetClub = params.targetRole === "coordinator"
+      ? (params.clubName || (params.clubId === 1 ? "Coding Club NKOCET" : "Campus Club"))
+      : undefined;
+
+    let finalUserId = realUserId;
+    let finalEmail = realUserEmail || "applicant@nkocet.ac.in";
+    let finalName = realUserName || "Applicant";
+    let finalDept = realDepartment || "Engineering";
+    let finalPrn = realPrn || "N/A";
+
+    const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+    // Supabase mode
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          finalUserId = user.id;
+          if (user.email) finalEmail = user.email;
+
+          // Fetch or ensure profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (profile) {
+            finalName = realUserName || profile.name || user.user_metadata?.name || finalEmail.split("@")[0];
+            finalDept = realDepartment || profile.department || "Engineering";
+            finalPrn = realPrn || profile.prn || "N/A";
+          } else {
+            // Upsert profile record so foreign key constraint succeeds
+            try {
+              await supabase.from("profiles").upsert({
+                id: user.id,
+                name: finalName,
+                email: finalEmail,
+                department: finalDept,
+                prn: finalPrn,
+              }, { onConflict: "id" });
+            } catch {}
+          }
+
+          // Check if club_id exists in public.clubs before passing it as a foreign key
+          let validClubId: number | null = null;
+          if (params.targetRole === "coordinator" && params.clubId && Number.isInteger(Number(params.clubId))) {
+            const { data: clubData } = await supabase
+              .from("clubs")
+              .select("id")
+              .eq("id", params.clubId)
+              .maybeSingle();
+            if (clubData?.id) {
+              validClubId = clubData.id;
+            }
+          }
+
+          const payload = {
+            requester_id: finalUserId,
+            requester_name: finalName,
+            requester_email: finalEmail,
+            target_role: params.targetRole,
+            club_id: validClubId,
+            club_name: targetClub,
+            department: finalDept,
+            prn: finalPrn,
+            justification: params.justification,
+            submitted_at: new Date().toISOString(),
+          };
+
+          if (isUuid(finalUserId)) {
+            const { error: insertErr } = await supabase.from("approval_requests").insert({
+              club_id: validClubId,
+              request_type: "role_elevation",
+              payload,
+              status: "pending",
+              submitted_by: finalUserId,
+            });
+
+            if (insertErr) {
+              console.warn("approval_requests insert note:", insertErr.message);
+            } else {
+              // Dispatch real notification to all admin accounts in Supabase
+              const { data: admins } = await supabase
+                .from("profiles")
+                .select("id, email, role")
+                .or("role.eq.admin,email.eq.sufiyannnn7@gmail.com,email.eq.admin@nkocet.ac.in");
+
+              if (admins && admins.length > 0) {
+                const adminNotifs = admins.map((adm) => ({
+                  user_id: adm.id,
+                  title: params.targetRole === "coordinator" ? "New Club Coordinator Request" : "New Faculty Access Request",
+                  body: `${finalName} (${finalEmail}) submitted a request to become ${params.targetRole === "coordinator" ? `Club Coordinator for ${targetClub || "Club"}` : "Faculty Advisor"}. Department: ${finalDept}, PRN/ID: ${finalPrn}.`,
+                  type: "club" as any,
+                  action_url: "/admin",
+                  read_status: false,
+                }));
+                try {
+                  await supabase.from("notifications").insert(adminNotifs);
+                } catch (e) {
+                  console.warn("Notifications insert error:", e);
+                }
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn("Supabase elevation request error:", err?.message);
+      }
     }
 
-    // If Supabase table has a permission or schema error, save to local queue so request is not lost
-    if (insertError) {
-      console.warn("Supabase approval_requests insert failed, queueing locally:", insertError);
-      const stored: RoleElevationRequest[] = JSON.parse(localStorage.getItem("campus360_role_requests") || "[]");
-      const newReq: RoleElevationRequest = {
-        id: Date.now(),
-        userId: user.id,
-        userName: profile?.name || user.email?.split("@")[0] || "Applicant",
-        userEmail: user.email || "",
-        targetRole: params.targetRole,
-        clubId: params.clubId,
-        clubName: params.clubName || (params.clubId === 1 ? "Coding Club NKOCET" : "Robotics & Automation Society"),
-        department: params.department || profile?.department || "Computer Science & Engineering",
-        prn: params.prn || profile?.prn || "PRN-PENDING",
-        justification: params.justification,
-        status: "pending",
-        submittedAt: new Date().toISOString(),
-      };
-      stored.unshift(newReq);
-      localStorage.setItem("campus360_role_requests", JSON.stringify(stored));
+    // Always store in local queue for immediate display across tabs & offline resilience
+    const stored: RoleElevationRequest[] = JSON.parse(localStorage.getItem("campus360_role_requests") || "[]");
+    const newReq: RoleElevationRequest = {
+      id: Date.now(),
+      userId: finalUserId,
+      userName: finalName,
+      userEmail: finalEmail,
+      targetRole: params.targetRole,
+      clubId: params.clubId,
+      clubName: targetClub,
+      department: finalDept,
+      prn: finalPrn,
+      justification: params.justification,
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+    };
+    stored.unshift(newReq);
+    localStorage.setItem("campus360_role_requests", JSON.stringify(stored));
+
+    const adminNotifs = JSON.parse(localStorage.getItem("campus360_admin_notifications") || "[]");
+    adminNotifs.unshift({
+      id: Date.now(),
+      title: params.targetRole === "coordinator" ? "New Club Coordinator Request" : "New Faculty Access Request",
+      message: `${finalName} (${finalEmail}) requested to become ${params.targetRole === "coordinator" ? `Club Coordinator for ${targetClub || "Club"}` : "Faculty Advisor"}.`,
+      body: `${finalName} (${finalEmail}) requested to become ${params.targetRole === "coordinator" ? `Club Coordinator for ${targetClub || "Club"}` : "Faculty Advisor"}. Department: ${finalDept}, PRN: ${finalPrn}.`,
+      type: "club",
+      timestamp: "Just now",
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      readStatus: false,
+      actionUrl: "/admin",
+    });
+    localStorage.setItem("campus360_admin_notifications", JSON.stringify(adminNotifs));
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("campus360_new_role_request", { detail: newReq }));
+      window.dispatchEvent(new CustomEvent("campus360_new_notification"));
     }
   },
 
@@ -1547,12 +1656,21 @@ export const coordinatorService = {
       }
     }
 
-    const combined = [...localRequests, ...dbRequests, ...MOCK_ROLE_REQUESTS];
-    // Deduplicate by ID and filter out resolved
-    const seen = new Set<number>();
+    const hasRealRequests = localRequests.length > 0 || dbRequests.length > 0;
+    const combined = hasRealRequests
+      ? [...localRequests, ...dbRequests]
+      : [...localRequests, ...dbRequests, ...MOCK_ROLE_REQUESTS];
+
+    // Deduplicate by ID and unique request signature, and filter out resolved
+    const seenIds = new Set<number>();
+    const seenKeys = new Set<string>();
     return combined.filter(r => {
-      if (seen.has(r.id) || resolvedIds.includes(r.id) || r.status !== "pending") return false;
-      seen.add(r.id);
+      if (resolvedIds.includes(r.id) || r.status !== "pending") return false;
+      if (seenIds.has(r.id)) return false;
+      const key = `${(r.userEmail || r.userId || "").toLowerCase().trim()}_${r.targetRole}_${(r.clubName || "").toLowerCase().trim()}`;
+      if (key && seenKeys.has(key)) return false;
+      seenIds.add(r.id);
+      if (key) seenKeys.add(key);
       return true;
     });
   },
@@ -1568,10 +1686,98 @@ export const coordinatorService = {
     resolvedIds.push(requestId);
     localStorage.setItem("campus360_resolved_role_reqs", JSON.stringify(resolvedIds));
 
-    if (!isSupabaseConfigured()) {
-      if (approve && targetRole) {
-        localStorage.setItem("demo_role", targetRole);
+    const stored: RoleElevationRequest[] = JSON.parse(localStorage.getItem("campus360_role_requests") || "[]");
+    const foundReq = stored.find(r => r.id === requestId);
+    const updated = stored.filter(r => r.id !== requestId);
+    localStorage.setItem("campus360_role_requests", JSON.stringify(updated));
+
+    const finalRole = targetRole || foundReq?.targetRole || "coordinator";
+    const finalUserId = userId || foundReq?.userId;
+    const finalClubId = clubId || foundReq?.clubId;
+    const finalClubName = foundReq?.clubName || "your club";
+
+    if (approve) {
+      // 1. Immediately elevate local session role if this user is logged in
+      const cachedUserStr = localStorage.getItem("campus360_user");
+      if (cachedUserStr) {
+        try {
+          const cu = JSON.parse(cachedUserStr);
+          if (!finalUserId || cu.id === finalUserId || cu.email === foundReq?.userEmail) {
+            cu.role = finalRole;
+            localStorage.setItem("campus360_user", JSON.stringify(cu));
+            localStorage.setItem("demo_role", finalRole);
+          }
+        } catch {}
       }
+
+      // 2. Student notification that role request was accepted
+      const userNotifsKey = finalUserId ? `campus360_user_notifications_${finalUserId}` : "campus360_student_notifications";
+      const userNotifs = JSON.parse(localStorage.getItem(userNotifsKey) || "[]");
+      userNotifs.unshift({
+        id: Date.now(),
+        title: "Role Request Approved! 🎉",
+        message: `Your request for ${finalRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} has been accepted by admin.`,
+        body: `Your request for ${finalRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} has been accepted by admin. Your permissions have been updated to full coordinator access.`,
+        type: "system",
+        timestamp: "Just now",
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        readStatus: false,
+        actionUrl: "/coordinator/dashboard",
+      });
+      localStorage.setItem(userNotifsKey, JSON.stringify(userNotifs));
+      if (foundReq?.userEmail) {
+        const emailKey = `campus360_user_notifications_${foundReq.userEmail}`;
+        const emailNotifs = JSON.parse(localStorage.getItem(emailKey) || "[]");
+        emailNotifs.unshift(userNotifs[0]);
+        localStorage.setItem(emailKey, JSON.stringify(emailNotifs));
+      }
+
+      // 3. Dispatch browser event to notify active views and context
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("campus360_role_changed", {
+            detail: {
+              role: finalRole,
+              userId: finalUserId,
+              userEmail: foundReq?.userEmail,
+              clubName: finalClubName,
+              message: `Your request for ${finalRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} is accepted by admin!`,
+            },
+          })
+        );
+        window.dispatchEvent(new CustomEvent("campus360_new_notification"));
+      }
+    } else {
+      // Local student notification for rejection
+      const userNotifsKey = finalUserId ? `campus360_user_notifications_${finalUserId}` : "campus360_student_notifications";
+      const userNotifs = JSON.parse(localStorage.getItem(userNotifsKey) || "[]");
+      const rejectNotif = {
+        id: Date.now(),
+        title: "Role Elevation Request Update",
+        message: `Your request for ${finalRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} was reviewed and declined by the Administrator.`,
+        body: `Your request for ${finalRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} was reviewed and declined by the Administrator.`,
+        type: "system",
+        timestamp: "Just now",
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        readStatus: false,
+        actionUrl: "/coordinator",
+      };
+      userNotifs.unshift(rejectNotif);
+      localStorage.setItem(userNotifsKey, JSON.stringify(userNotifs));
+      if (foundReq?.userEmail) {
+        const emailKey = `campus360_user_notifications_${foundReq.userEmail}`;
+        const emailNotifs = JSON.parse(localStorage.getItem(emailKey) || "[]");
+        emailNotifs.unshift(rejectNotif);
+        localStorage.setItem(emailKey, JSON.stringify(emailNotifs));
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("campus360_new_notification"));
+      }
+    }
+
+    if (!isSupabaseConfigured()) {
       return;
     }
 
@@ -1585,9 +1791,9 @@ export const coordinatorService = {
         .maybeSingle();
 
       const payload = (req?.payload as any) || {};
-      const finalRole = targetRole || payload.target_role || "coordinator";
-      const finalClubId = clubId || req?.club_id || payload.club_id;
-      const finalUserId = userId || req?.submitted_by || payload.requester_id;
+      const dbRole = targetRole || payload.target_role || finalRole;
+      const dbClubId = clubId || req?.club_id || payload.club_id || finalClubId;
+      const dbUserId = userId || req?.submitted_by || payload.requester_id || finalUserId;
 
       if (req) {
         await supabase
@@ -1599,21 +1805,48 @@ export const coordinatorService = {
           .eq("id", requestId);
       }
 
-      if (approve && finalUserId) {
-        await supabase
-          .from("profiles")
-          .update({ role: finalRole })
-          .eq("id", finalUserId);
+      if (dbUserId) {
+        if (approve) {
+          await supabase
+            .from("profiles")
+            .update({ role: dbRole })
+            .eq("id", dbUserId);
 
-        if (finalRole === "coordinator" && finalClubId) {
+          if (dbRole === "coordinator" && dbClubId) {
+            try {
+              await supabase
+                .from("club_coordinator_assignments")
+                .upsert({
+                  club_id: Number(dbClubId),
+                  user_id: dbUserId,
+                  is_active: true,
+                }, { onConflict: "club_id,user_id" });
+            } catch {}
+          }
+
+          // Insert Supabase notification for the student
           try {
-            await supabase
-              .from("club_coordinator_assignments")
-              .upsert({
-                club_id: Number(finalClubId),
-                user_id: finalUserId,
-                is_active: true,
-              }, { onConflict: "club_id,user_id" });
+            await supabase.from("notifications").insert({
+              user_id: dbUserId,
+              title: "Role Request Approved! 🎉",
+              body: `Your request for ${dbRole === "coordinator" ? "Club Coordinator" : "Faculty Advisor"} is accepted by admin. Permissions updated.`,
+              type: "system" as any,
+              action_url: "/coordinator/dashboard",
+              read_status: false,
+            });
+          } catch (notifErr) {
+            console.warn("Could not insert approval notification in Supabase:", notifErr);
+          }
+        } else {
+          try {
+            await supabase.from("notifications").insert({
+              user_id: dbUserId,
+              title: "Role Request Update",
+              body: `Your role elevation request was reviewed and declined by the Administrator.`,
+              type: "system" as any,
+              action_url: "/coordinator",
+              read_status: false,
+            });
           } catch {}
         }
       }
@@ -1622,7 +1855,141 @@ export const coordinatorService = {
     }
   },
 
-  // -------------------------------------------------------------
+  // 13B. CLUB APPROVALS (Profile updates, venue changes, endorsements)
+  async getPendingClubApprovals(): Promise<ClubApprovalItem[]> {
+    const resolvedIds: number[] = JSON.parse(localStorage.getItem("campus360_resolved_club_approvals") || "[]");
+    let dbApprovals: ClubApprovalItem[] = [];
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from("approval_requests")
+          .select("*, clubs(name), profiles:submitted_by(name, email)")
+          .neq("request_type", "role_elevation")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false });
+
+        if (!error && data) {
+          dbApprovals = data.map((r: any) => {
+            const p = (r.payload as any) || {};
+            const clubName = r.clubs?.name || p.club_name || "Campus Club";
+            const submitterName = (r.profiles as any)?.name || (r.profiles as any)?.email || "Coordinator";
+            const typeLabel = r.request_type === "profile_update"
+              ? "Club Profile & Venue Update"
+              : r.request_type === "event_publish"
+              ? "Event Publication Request"
+              : r.request_type === "recruitment_launch"
+              ? "Recruitment Drive Approval"
+              : "Institutional Governance Review";
+
+            return {
+              id: r.id,
+              clubId: r.club_id,
+              clubName,
+              changeType: p.summary || typeLabel,
+              submittedBy: submitterName,
+              submittedAt: r.created_at,
+              payload: p,
+              status: r.status,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn("Could not query approval_requests for club approvals:", err);
+      }
+    }
+
+    const localApprovals: ClubApprovalItem[] = JSON.parse(localStorage.getItem("campus360_club_approvals") || "[]");
+
+    // Realistic fallback items ONLY if neither has been resolved/rejected by admin
+    const MOCK_CLUB_APPROVALS: ClubApprovalItem[] = [
+      { id: 901, clubName: "Coding Club NKOCET", changeType: "Mission & Meeting Venue Update", submittedBy: "Coordinator (Sufiyan)", status: "pending" },
+      { id: 902, clubName: "Robotics Society", changeType: "New Faculty Advisor Endorsement", submittedBy: "Lead (Aditya)", status: "pending" },
+    ];
+
+    const hasReal = dbApprovals.length > 0 || localApprovals.length > 0;
+    const combined = hasReal ? [...dbApprovals, ...localApprovals] : [...MOCK_CLUB_APPROVALS, ...localApprovals];
+
+    const seen = new Set<number>();
+    return combined.filter(c => {
+      if (resolvedIds.includes(c.id) || seen.has(c.id) || c.status !== "pending") return false;
+      seen.add(c.id);
+      return true;
+    });
+  },
+
+  async resolveClubApproval(id: number, approve: boolean, notes?: string): Promise<void> {
+    const resolvedIds: number[] = JSON.parse(localStorage.getItem("campus360_resolved_club_approvals") || "[]");
+    if (!resolvedIds.includes(id)) {
+      resolvedIds.push(id);
+      localStorage.setItem("campus360_resolved_club_approvals", JSON.stringify(resolvedIds));
+    }
+
+    const localList: ClubApprovalItem[] = JSON.parse(localStorage.getItem("campus360_club_approvals") || "[]");
+    const updatedLocal = localList.filter(c => c.id !== id);
+    localStorage.setItem("campus360_club_approvals", JSON.stringify(updatedLocal));
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: req } = await supabase
+          .from("approval_requests")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (req) {
+          const newStatus = approve ? "approved" : "rejected";
+          await supabase
+            .from("approval_requests")
+            .update({
+              status: newStatus,
+              admin_notes: notes || (approve ? "Approved by Administrator" : "Declined by Administrator"),
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq("id", id);
+
+          // If profile_update was approved, publish club changes
+          if (approve && req.request_type === "profile_update" && req.club_id) {
+            const payload = (req.payload as any) || {};
+            await supabase
+              .from("clubs")
+              .update({
+                status: "published" as any,
+                ...(payload.mission ? { mission: payload.mission } : {}),
+                ...(payload.meeting_venue ? { meeting_venue: payload.meeting_venue } : {}),
+                ...(payload.tagline ? { tagline: payload.tagline } : {}),
+                ...(payload.description ? { description: payload.description } : {}),
+              })
+              .eq("id", req.club_id);
+          }
+
+          // Notify the coordinator who submitted it
+          if (req.submitted_by) {
+            try {
+              await supabase.from("notifications").insert({
+                user_id: req.submitted_by,
+                title: approve ? "Club Changes Approved! 🎉" : "Club Changes Returned",
+                body: approve
+                  ? `Your submission for club updates has been approved and published to the directory.`
+                  : `Your submission for club updates was declined: ${notes || "Check feedback."}`,
+                type: "club" as any,
+                action_url: "/coordinator/dashboard",
+                read_status: false,
+              });
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn("Supabase resolveClubApproval error:", err);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("campus360_club_approval_changed", { detail: { id, approve } }));
+      window.dispatchEvent(new CustomEvent("campus360_new_notification"));
+    }
+  },
+
   // 14. CSV EXPORTS
   // -------------------------------------------------------------
   exportToCsv(filename: string, rows: Record<string, any>[]): void {

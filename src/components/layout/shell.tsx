@@ -38,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user: authUser } = useAuth();
   const { data: meUser } = useGetMe();
   const user = authUser || meUser;
+  const isAdmin = user?.role === "admin" || user?.email?.toLowerCase().trim() === "sufiyannnn7@gmail.com" || user?.email?.toLowerCase().trim() === "admin@nkocet.ac.in";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location] = useLocation();
 
@@ -230,7 +231,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // 2. Authenticated Layout
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background md:flex-row">
+    <div className="flex min-h-screen md:h-screen md:overflow-hidden w-full flex-col bg-background md:flex-row">
       {/* Mobile Header */}
       <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b bg-background px-4 md:hidden">
         <Link href="/dashboard" className="flex items-center gap-2.5 font-bold text-base text-primary">
@@ -247,11 +248,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Sidebar Navigation */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 flex-col border-r bg-sidebar transition-transform duration-300 ease-in-out md:static md:flex md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 w-64 flex-col border-r bg-sidebar transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:shrink-0 md:flex md:translate-x-0",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-14 items-center border-b px-6">
+        <div className="flex h-14 items-center border-b px-6 shrink-0">
           <Link
             href="/dashboard"
             className="flex items-center gap-2.5 font-bold text-lg text-primary"
@@ -279,7 +280,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SidebarLink href="/certificates" icon={Medal} label="Certificates" onClick={() => setIsMobileMenuOpen(false)} />
             <SidebarLink href="/notifications" icon={Bell} label="Notifications" onClick={() => setIsMobileMenuOpen(false)} />
 
-            {user?.role === "admin" && (
+            {isAdmin && (
               <>
                 <div className="my-3 border-t border-sidebar-border/50" />
                 <div className="px-2 mb-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Administration</div>
@@ -287,7 +288,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </>
             )}
 
-            {(user?.role === "coordinator" || user?.role === "admin") && (
+            {(user?.role === "coordinator" || isAdmin) && (
               <>
                 <div className="my-3 border-t border-sidebar-border/50" />
                 <div className="px-2 mb-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Management</div>
@@ -297,7 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        <div className="border-t border-sidebar-border/50 p-3">
+        <div className="border-t border-sidebar-border/50 p-3 shrink-0">
           <UserMenu user={user} />
         </div>
       </aside>

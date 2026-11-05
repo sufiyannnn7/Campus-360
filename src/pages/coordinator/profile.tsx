@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCoordinator } from "./coordinator-context";
 import { coordinatorService } from "@/api/services/coordinator.service";
 import { ClubSectionItem } from "@/types/coordinator";
+import { ImageUploadDropzone } from "@/components/ui/image-upload-dropzone";
 
 export default function CoordinatorProfile() {
   const { activeClub, refreshClubs } = useCoordinator();
@@ -420,45 +421,28 @@ export default function CoordinatorProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Logo Section */}
                 <div className="space-y-3 border p-4 rounded-2xl bg-muted/20">
-                  <Label className="text-xs font-bold">Club Logo</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="h-20 w-20 rounded-2xl border-2 border-dashed bg-card flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
-                      {logoUrl ? (
-                        <img src={logoUrl} alt="Club Logo Preview" className="h-full w-full object-cover" />
-                      ) : (
-                        <Building2 className="h-8 w-8 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      <Input
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        placeholder="Paste image URL (or upload)"
-                        className="h-8 text-xs font-mono"
-                      />
-                      <p className="text-[10px] text-muted-foreground">Square aspect ratio (1:1), 500x500px recommended.</p>
-                    </div>
-                  </div>
+                  <ImageUploadDropzone
+                    label="Club Official Logo"
+                    value={logoUrl}
+                    onChange={setLogoUrl}
+                    aspect="square"
+                    assetType="logo"
+                    clubId={activeClub.id}
+                    description="1:1 Square icon. Auto-compressed to WebP; replaces existing logo in storage."
+                  />
                 </div>
 
                 {/* Banner Section */}
                 <div className="space-y-3 border p-4 rounded-2xl bg-muted/20">
-                  <Label className="text-xs font-bold">Cover Banner</Label>
-                  <div className="space-y-2">
-                    <div className="h-20 w-full rounded-2xl border-2 border-dashed bg-card flex items-center justify-center overflow-hidden shadow-2xs">
-                      {bannerUrl ? (
-                        <img src={bannerUrl} alt="Banner Preview" className="h-full w-full object-cover" />
-                      ) : (
-                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                      )}
-                    </div>
-                    <Input
-                      value={bannerUrl}
-                      onChange={(e) => setBannerUrl(e.target.value)}
-                      placeholder="Paste cover banner URL"
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
+                  <ImageUploadDropzone
+                    label="Cover Banner"
+                    value={bannerUrl}
+                    onChange={setBannerUrl}
+                    aspect="banner"
+                    assetType="banner"
+                    clubId={activeClub.id}
+                    description="Widescreen cover. Auto-compressed to WebP; replaces existing banner in storage."
+                  />
                 </div>
               </div>
 

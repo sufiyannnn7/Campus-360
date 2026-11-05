@@ -8,8 +8,11 @@ export interface CampusNotification {
   id: number | string;
   title: string;
   message: string;
+  body?: string;
   type: NotificationType;
   timestamp: string;
+  createdAt?: string;
   isRead: boolean;
+  readStatus?: boolean;
   actionUrl?: string;
 }

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { compressImage } from "@/lib/image-compressor";
+import { uploadClubImage } from "@/lib/storage";
 import { Upload, X, Image as ImageIcon, Check, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,25 +48,33 @@ export function EventMediaUploader({
 
     try {
       setIsCompressingMain(true);
-      const result = await compressImage(file, {
+      const res = await uploadClubImage({
+        file,
+        assetType: "banner",
+        tempId: `event_${Date.now()}`,
+        compress: true,
         maxWidth: 1200,
         maxHeight: 800,
-        quality: 0.78,
       });
 
-      onMainImageChange(result.dataUrl);
-      const savedPct = Math.round((1 - result.compressedSize / result.originalSize) * 100);
-      setMainSizeInfo(
-        `${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${savedPct > 0 ? `-${savedPct}%` : "optimized"})`
-      );
-
-      toast({
-        title: "Image Compressed & Ready",
-        description: `Reduced size by ${savedPct}% for fast loading on campus devices.`,
-      });
+      onMainImageChange(res.url);
+      if (res.stats && res.stats.reductionPercent > 0) {
+        setMainSizeInfo(
+          `${formatBytes(res.stats.originalSize)} → ${formatBytes(res.stats.compressedSize)} (-${res.stats.reductionPercent}%)`
+        );
+        toast({
+          title: "Event Image Compressed & Ready",
+          description: `Reduced size by ${res.stats.reductionPercent}% & saved.`,
+        });
+      } else {
+        toast({
+          title: "Event Image Uploaded",
+          description: "Image attached successfully.",
+        });
+      }
     } catch (err: any) {
       toast({
-        title: "Compression Failed",
+        title: "Upload Failed",
         description: err.message || "Could not process image.",
         variant: "destructive",
       });
@@ -84,12 +93,15 @@ export function EventMediaUploader({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.type.startsWith("image/")) {
-          const res = await compressImage(file, {
+          const res = await uploadClubImage({
+            file,
+            assetType: "banner",
+            tempId: `gallery_${Date.now()}_${i}`,
+            compress: true,
             maxWidth: 1000,
             maxHeight: 1000,
-            quality: 0.75,
           });
-          newUrls.push(res.dataUrl);
+          newUrls.push(res.url);
         }
       }
 
@@ -100,8 +112,8 @@ export function EventMediaUploader({
       });
     } catch (err: any) {
       toast({
-        title: "Gallery Upload Failed",
-        description: err.message || "Failed to compress gallery images.",
+        title: "Upload Failed",
+        description: err.message || "Could not upload gallery images.",
         variant: "destructive",
       });
     } finally {

@@ -26,7 +26,7 @@ import {
 import { Link } from "wouter"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { coordinatorService, RoleElevationRequest } from "@/api/services/coordinator.service"
+import { coordinatorService, RoleElevationRequest, ClubApprovalItem } from "@/api/services/coordinator.service"
 import { clubsService } from "@/api/services/clubs.service"
 import { EventMediaUploader } from "@/components/events/event-media-uploader"
 
@@ -723,11 +723,9 @@ function AdminDashboardView({ user }: { user: any }) {
     }
   }
 
-  // Club pending approvals mock
-  const [clubApprovals, setClubApprovals] = useState([
-    { id: 1, clubName: "Coding Club NKOCET", changeType: "Mission & Meeting Venue Update", submittedBy: "Coordinator (Sufiyan)", status: "Pending" },
-    { id: 2, clubName: "Robotics Society", changeType: "New Faculty Advisor Endorsement", submittedBy: "Lead (Aditya)", status: "Pending" },
-  ])
+  // Live Club pending approvals
+  const [clubApprovals, setClubApprovals] = useState<ClubApprovalItem[]>([])
+  const [loadingClubApprovals, setLoadingClubApprovals] = useState(true)
 
   const loadRoleRequests = async () => {
     try {
@@ -740,35 +738,76 @@ function AdminDashboardView({ user }: { user: any }) {
     }
   }
 
-  useEffect(() => {
-    loadRoleRequests()
-  }, [])
-
-  const handleResolve = async (req: RoleElevationRequest, approve: boolean) => {
+  const loadClubApprovals = async () => {
     try {
-      await coordinatorService.resolveRoleElevation(req.id, approve, req.targetRole, req.clubId, req.userId)
-      toast({
-        title: approve ? "Role Elevation Approved!" : "Request Rejected",
-        description: approve
-          ? `${req.userName} has been promoted to ${req.targetRole === "coordinator" ? `Club Coordinator for ${req.clubName || "Club"}` : "Faculty Advisor"}.`
-          : `Role elevation request for ${req.userName} has been rejected.`,
-      })
-      await loadRoleRequests()
-    } catch (err: any) {
-      toast({
-        title: "Action Failed",
-        description: err?.message || "Could not resolve request.",
-        variant: "destructive"
-      })
+      const approvals = await coordinatorService.getPendingClubApprovals()
+      setClubApprovals(approvals)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingClubApprovals(false)
     }
   }
 
-  const handleApproveClubChange = (id: number, approve: boolean) => {
+  const refreshAllAdminData = async () => {
+    setLoadingRequests(true)
+    setLoadingClubApprovals(true)
+    await Promise.all([loadRoleRequests(), loadClubApprovals()])
+  }
+
+  useEffect(() => {
+    refreshAllAdminData()
+
+    const handleRefresh = () => {
+      loadRoleRequests()
+      loadClubApprovals()
+    }
+
+    window.addEventListener("campus360_new_role_request", handleRefresh)
+    window.addEventListener("campus360_club_approval_changed", handleRefresh)
+    window.addEventListener("campus360_new_notification", handleRefresh)
+    window.addEventListener("storage", handleRefresh)
+
+    return () => {
+      window.removeEventListener("campus360_new_role_request", handleRefresh)
+      window.removeEventListener("campus360_club_approval_changed", handleRefresh)
+      window.removeEventListener("campus360_new_notification", handleRefresh)
+      window.removeEventListener("storage", handleRefresh)
+    }
+  }, [])
+
+  const handleResolve = async (req: RoleElevationRequest, approve: boolean) => {
+    // Instant optimistic removal so request is gone immediately
+    setRoleRequests(prev => prev.filter(r => r.id !== req.id))
+    toast({
+      title: approve ? "Role Elevation Approved!" : "Request Rejected",
+      description: approve
+        ? `${req.userName} has been promoted to ${req.targetRole === "coordinator" ? `Club Coordinator for ${req.clubName || "Club"}` : "Faculty Advisor"}.`
+        : `Role elevation request for ${req.userName} has been rejected.`,
+    })
+
+    try {
+      await coordinatorService.resolveRoleElevation(req.id, approve, req.targetRole, req.clubId, req.userId)
+    } catch (err: any) {
+      console.warn("Resolve role elevation warning:", err?.message)
+    }
+  }
+
+  const handleApproveClubChange = async (id: number, approve: boolean) => {
+    // Instant optimistic removal so card disappears immediately
     setClubApprovals(prev => prev.filter(c => c.id !== id))
     toast({
-      title: approve ? "Club Changes Approved!" : "Changes Returned",
-      description: approve ? "Club profile update published to campus directory." : "Changes rejected and returned to coordinator.",
+      title: approve ? "Club Changes Approved!" : "Changes Rejected",
+      description: approve
+        ? "Club profile update published to campus directory."
+        : "Changes rejected and returned to coordinator.",
     })
+
+    try {
+      await coordinatorService.resolveClubApproval(id, approve)
+    } catch (err: any) {
+      console.warn("Resolve club approval error:", err?.message)
+    }
   }
 
   const handleCreateAdminEvent = async (e: React.FormEvent) => {
