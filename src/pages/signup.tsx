@@ -24,7 +24,7 @@ const signupSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   department: z.string().min(1, "Please select your department"),
   year: z.string().min(1, "Please select your year of study"),
-  prn: z.string().min(4, "Please enter your PRN or Roll Number"),
+  prn: z.string().optional().or(z.literal("")),
   division: z.string().optional(),
   phone: z.string().optional(),
 });
@@ -79,7 +79,7 @@ export default function Signup() {
         role: "student", // All new signups begin as students; elevated by admin
         department: values.department,
         year: values.year,
-        prn: values.prn.trim(),
+        prn: values.prn ? values.prn.trim() : undefined,
         division: values.division?.trim(),
         phone: values.phone?.trim(),
       });
@@ -302,10 +302,10 @@ export default function Signup() {
                   name="prn"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs font-bold text-foreground">PRN / Roll Number *</FormLabel>
+                      <FormLabel className="text-xs font-bold text-foreground">PRN / Roll Number (Optional)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g. 2024BCSE042"
+                          placeholder="e.g. 101 or 2024BCSE042 (optional)"
                           className="h-9 text-xs bg-white border-border/80 shadow-2xs font-medium"
                           {...field}
                         />

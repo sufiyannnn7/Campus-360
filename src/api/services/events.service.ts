@@ -8,6 +8,34 @@ import { apiClient } from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import { EventItem, EventFilterParams, EventRegistrationPayload } from "@/types/events";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { UPCOMING_EVENTS_DATA } from "@/data/landing-data";
+
+function getLocalCustomEvents(): EventItem[] {
+  try {
+    return JSON.parse(localStorage.getItem("campus360_custom_events") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function mapLandingEventToEventItem(e: any): EventItem {
+  return {
+    id: e.id,
+    title: e.title,
+    date: e.date,
+    time: e.time,
+    category: e.category,
+    venue: e.venue,
+    organizer: e.organizer,
+    bannerUrl: e.image,
+    posterUrl: e.image,
+    registeredCount: e.attendeesCount || 0,
+    seatsLeft: e.spotsLeft,
+    status: "upcoming",
+  };
+}
+
+const DEFAULT_MOCK_EVENTS: EventItem[] = UPCOMING_EVENTS_DATA.map(mapLandingEventToEventItem);
 
 function mapRowToEventItem(row: any, isRegistered = false): EventItem {
   const startDate = row.start_datetime ? new Date(row.start_datetime) : new Date();
@@ -28,8 +56,8 @@ function mapRowToEventItem(row: any, isRegistered = false): EventItem {
     startDatetime: row.start_datetime,
     endDatetime: row.end_datetime || undefined,
     category: row.category,
-    venue: row.venue_name || row.venues?.name || "Campus Main Hall",
-    organizer: row.organizer_name,
+    venue: row.venue_name || row.venues?.name || "Main Campus Auditorium",
+    organizer: row.organizer_name || "Campus 360",
     organizerClubId: row.organizer_club_id || undefined,
     bannerUrl: row.banner_url || undefined,
     posterUrl: row.poster_url || undefined,
@@ -43,17 +71,20 @@ function mapRowToEventItem(row: any, isRegistered = false): EventItem {
     coordinators: row.coordinators || [],
     prizes: row.prizes || [],
     status: row.status,
+    galleryUrls: row.gallery_urls || [],
   };
 }
 
 export const eventsService = {
   async listEvents(params?: EventFilterParams): Promise<EventItem[]> {
+    const localEvents = getLocalCustomEvents();
+
     if (!isSupabaseConfigured()) {
-      return apiClient.get<EventItem[]>(API_ENDPOINTS.EVENTS.LIST, { params });
+      return [...localEvents, ...DEFAULT_MOCK_EVENTS];
     }
 
     try {
-      let query = supabase.from("events").select("*, venues(name, building, floor)");
+      let query: any = supabase.from("events").select("*, venues(name, building, floor)");
 
       if (params?.category && params.category !== "All") {
         query = query.eq("category", params.category as any);
@@ -70,67 +101,110 @@ export const eventsService = {
 
       query = query.order("start_datetime", { ascending: true });
 
-      const { data, error } = await query;
+      const res: any = await query;
+      let data: any = res.data;
+      let error: any = res.error;
+
       if (error) {
-        console.error("Supabase listEvents error:", error);
-        throw new Error(error.message);
+        // Fallback without venue join
+        const retry: any = await supabase.from("events").select("*").order("start_datetime", { ascending: true });
+        data = retry.data;
+        error = retry.error;
+      }
+
+      if (error || !data || data.length === 0) {
+        return [...localEvents, ...DEFAULT_MOCK_EVENTS];
       }
 
       // Check current user registrations to flag isRegistered
-      const { data: { user } } = await supabase.auth.getUser();
       let registeredEventIds = new Set<number>();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: regs } = await supabase
+            .from("event_registrations")
+            .select("event_id")
+            .eq("user_id", user.id)
+            .neq("status", "cancelled");
 
-      if (user) {
-        const { data: regs } = await supabase
-          .from("event_registrations")
-          .select("event_id")
-          .eq("user_id", user.id)
-          .neq("status", "cancelled");
+          if (regs) {
+            registeredEventIds = new Set(regs.map((r) => r.event_id));
+          }
+        }
+      } catch {}
 
-        if (regs) {
-          registeredEventIds = new Set(regs.map((r) => r.event_id));
+      const dbEvents = (data || []).map((row: any) => mapRowToEventItem(row, registeredEventIds.has(row.id)));
+      const combined = [...localEvents, ...dbEvents];
+      const seen = new Set<number>();
+      const deduped: EventItem[] = [];
+
+      for (const item of combined) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          deduped.push(item);
         }
       }
 
-      return (data || []).map((row) => mapRowToEventItem(row, registeredEventIds.has(row.id)));
+      return deduped.length > 0 ? deduped : DEFAULT_MOCK_EVENTS;
     } catch (err: any) {
-      console.error("Failed to load events from Supabase:", err);
-      throw err;
+      console.warn("Failed to load events from Supabase, returning local data:", err);
+      return [...localEvents, ...DEFAULT_MOCK_EVENTS];
     }
   },
 
   async getEventById(id: string | number): Promise<EventItem> {
-    if (!isSupabaseConfigured()) {
-      return apiClient.get<EventItem>(API_ENDPOINTS.EVENTS.DETAIL(id));
-    }
-
     const numericId = Number(id);
-    const { data, error } = await supabase
-      .from("events")
-      .select("*, venues(*)")
-      .eq("id", numericId)
-      .single();
 
-    if (error || !data) {
-      throw new Error(error?.message || `Event #${id} not found.`);
+    // 1. Check local custom events first
+    const localEvents = getLocalCustomEvents();
+    const localFound = localEvents.find((e) => e.id === numericId || String(e.id) === String(id));
+    if (localFound) return localFound;
+
+    // 2. Check Supabase
+    if (isSupabaseConfigured()) {
+      try {
+        const res: any = await supabase
+          .from("events")
+          .select("*, venues(*)")
+          .eq("id", numericId)
+          .maybeSingle();
+
+        let data: any = res.data;
+        let error: any = res.error;
+
+        if (error || !data) {
+          const retry: any = await supabase.from("events").select("*").eq("id", numericId).maybeSingle();
+          data = retry.data;
+        }
+
+        if (data) {
+          let isRegistered = false;
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: reg } = await supabase
+                .from("event_registrations")
+                .select("id")
+                .eq("event_id", numericId)
+                .eq("user_id", user.id)
+                .neq("status", "cancelled")
+                .maybeSingle();
+              isRegistered = Boolean(reg);
+            }
+          } catch {}
+
+          return mapRowToEventItem(data, isRegistered);
+        }
+      } catch (err) {
+        console.warn("Supabase getEventById error:", err);
+      }
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    let isRegistered = false;
+    // 3. Fallback to mock data
+    const mock = DEFAULT_MOCK_EVENTS.find((e) => e.id === numericId || String(e.id) === String(id));
+    if (mock) return mock;
 
-    if (user) {
-      const { data: reg } = await supabase
-        .from("event_registrations")
-        .select("id, status")
-        .eq("event_id", numericId)
-        .eq("user_id", user.id)
-        .neq("status", "cancelled")
-        .maybeSingle();
-
-      isRegistered = Boolean(reg);
-    }
-
-    return mapRowToEventItem(data, isRegistered);
+    throw new Error(`Event #${id} not found.`);
   },
 
   async registerEvent(id: string | number, payload?: EventRegistrationPayload): Promise<any> {

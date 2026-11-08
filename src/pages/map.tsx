@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Search, Navigation, Users, Tv, Mic, Wind, Info, Calendar, ArrowLeft, Building2, CheckCircle2, Clock, ExternalLink, Compass, Layers, Utensils, Trophy } from "lucide-react"
+import { MapPin, Search, Navigation, Users, Tv, Mic, Wind, Info, Calendar, ArrowLeft, ArrowRight, Building2, CheckCircle2, Clock, ExternalLink, Compass, Layers, Utensils, Trophy } from "lucide-react"
 import { UPCOMING_EVENTS_DATA, UpcomingEventItem } from "@/data/landing-data"
+import { eventsService } from "@/api/services/events.service"
+import { EventItem } from "@/types/events"
 import { Link } from "wouter"
 import { cn } from "@/lib/utils"
 
@@ -192,6 +194,26 @@ export default function CampusMapPage() {
   const [search, setSearch] = useState("")
   const [selectedVenue, setSelectedVenue] = useState<CampusVenue>(NKOCET_CAMPUS_LOCATIONS[2])
   const [originVenue, setOriginVenue] = useState<string>("College Main Gate")
+  const [liveEvents, setLiveEvents] = useState<EventItem[]>([])
+
+  useEffect(() => {
+    eventsService.listEvents().then(setLiveEvents).catch(() => setLiveEvents([]))
+
+    const params = new URLSearchParams(window.location.search)
+    const venueParam = params.get("venue")
+    if (venueParam) {
+      const vLower = venueParam.toLowerCase()
+      const matched = NKOCET_CAMPUS_LOCATIONS.find(
+        (loc) =>
+          loc.name.toLowerCase().includes(vLower) ||
+          loc.building.toLowerCase().includes(vLower) ||
+          loc.code.toLowerCase().includes(vLower) ||
+          vLower.includes(loc.name.toLowerCase()) ||
+          vLower.includes(loc.code.toLowerCase())
+      )
+      if (matched) setSelectedVenue(matched)
+    }
+  }, [])
 
   const filteredLocations = NKOCET_CAMPUS_LOCATIONS.filter(
     (v) =>
@@ -202,9 +224,33 @@ export default function CampusMapPage() {
       v.upcomingEventTitle.toLowerCase().includes(search.toLowerCase())
   )
 
-  const activeEventsAtSelected = UPCOMING_EVENTS_DATA.filter(
-    (e) => e.venue.toLowerCase().includes(selectedVenue.name.toLowerCase()) || selectedVenue.name.toLowerCase().includes(e.venue.toLowerCase())
-  )
+  const allAvailableEvents = liveEvents.length > 0 ? liveEvents : (UPCOMING_EVENTS_DATA as any)
+
+  const getEventsForVenue = (location: CampusVenue) => {
+    return allAvailableEvents.filter((e: any) => {
+      const ev = (typeof e.venue === "string" ? e.venue : e.venue?.name || "").toLowerCase().trim()
+      const locName = location.name.toLowerCase()
+      const locCode = location.code.toLowerCase()
+      const locBldg = location.building.toLowerCase()
+
+      if (ev.includes(locName) || locName.includes(ev)) return true
+      if (ev.includes(locCode) || locCode.includes(ev)) return true
+      if (ev.includes(locBldg) || locBldg.includes(ev)) return true
+
+      // Semantic venue aliases
+      if ((ev.includes("seminar hall") || ev.includes("auditorium")) && (location.id === 3 || location.name.includes("Civil"))) return true
+      if ((ev.includes("cse") || ev.includes("computer center") || ev.includes("coding lab") || ev.includes("lab 3")) && location.id === 1) return true
+      if ((ev.includes("ai") || ev.includes("data science") || ev.includes("entc")) && location.id === 2) return true
+      if ((ev.includes("sae") || ev.includes("mech") || ev.includes("workshop") || ev.includes("quadrangle")) && location.id === 4) return true
+      if ((ev.includes("playground") || ev.includes("ground") || ev.includes("pg") || ev.includes("stadium")) && location.id === 6) return true
+      if ((ev.includes("court") || ev.includes("basket") || ev.includes("volley")) && location.id === 7) return true
+      if (ev.includes("canteen") && location.id === 5) return true
+
+      return false
+    })
+  }
+
+  const activeEventsAtSelected = getEventsForVenue(selectedVenue)
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("NKOCET Solapur " + selectedVenue.name)}`
 
@@ -274,6 +320,8 @@ export default function CampusMapPage() {
               {/* Interactive Clickable Venue Overlay Pins */}
               {NKOCET_CAMPUS_LOCATIONS.map((venue) => {
                 const isSelected = selectedVenue.id === venue.id
+                const venueEvents = getEventsForVenue(venue)
+                const hasEvents = venueEvents.length > 0
                 return (
                   <button
                     key={venue.id}
@@ -284,25 +332,35 @@ export default function CampusMapPage() {
                       isSelected && "z-30 scale-110"
                     )}
                   >
-                    <div
-                      className={cn(
-                        "h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shadow-2xl transition-all border-2",
-                        isSelected
-                          ? "bg-primary text-white border-white ring-4 ring-primary/40 animate-pulse scale-110"
-                          : "bg-slate-900/90 text-teal-300 border-teal-400 hover:bg-primary hover:text-white"
+                    <div className="relative">
+                      <div
+                        className={cn(
+                          "h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shadow-2xl transition-all border-2",
+                          isSelected
+                            ? "bg-primary text-white border-white ring-4 ring-primary/40 animate-pulse scale-110"
+                            : hasEvents
+                            ? "bg-emerald-600 text-white border-emerald-300 ring-2 ring-emerald-400/50"
+                            : "bg-slate-900/90 text-teal-300 border-teal-400 hover:bg-primary hover:text-white"
+                        )}
+                      >
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      {hasEvents && (
+                        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400 border border-slate-950 animate-ping" />
                       )}
-                    >
-                      <MapPin className="h-4 w-4" />
                     </div>
                     <span
                       className={cn(
-                        "mt-1 px-2.5 py-0.5 rounded-lg text-[10px] sm:text-xs font-black whitespace-nowrap shadow-xl backdrop-blur-md transition-all border",
+                        "mt-1 px-2.5 py-0.5 rounded-lg text-[10px] sm:text-xs font-black whitespace-nowrap shadow-xl backdrop-blur-md transition-all border flex items-center gap-1",
                         isSelected
                           ? "bg-primary text-white border-white shadow-primary/50"
                           : "bg-slate-900/95 text-slate-100 border-slate-700 group-hover:border-primary"
                       )}
                     >
                       {venue.code}
+                      {hasEvents && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      )}
                     </span>
                   </button>
                 )
@@ -338,18 +396,62 @@ export default function CampusMapPage() {
                   {selectedVenue.description}
                 </p>
 
-                {/* Upcoming Event at Location */}
-                <div className="p-4 rounded-2xl bg-muted/40 border border-primary/20 space-y-2">
-                  <div className="text-[11px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" /> Next Event Hosted Here:
+                {/* Upcoming Events at Location */}
+                <div className="space-y-3">
+                  <div className="text-[11px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4" /> Live Events Hosted at this Venue ({activeEventsAtSelected.length}):
+                    </span>
+                    {activeEventsAtSelected.length > 0 && (
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
+                        Live Scheduled
+                      </Badge>
+                    )}
                   </div>
-                  <h4 className="text-sm font-black text-foreground">
-                    {selectedVenue.upcomingEventTitle}
-                  </h4>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-semibold">
-                    <span>📅 {selectedVenue.upcomingEventDate}</span>
-                    <Badge variant="secondary" className="text-[10px] font-bold">{selectedVenue.organizer}</Badge>
-                  </div>
+
+                  {activeEventsAtSelected.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {activeEventsAtSelected.map((evt: any) => {
+                        const dateDisplay = evt.date || (evt.startDatetime ? new Date(evt.startDatetime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Upcoming")
+                        return (
+                          <div key={evt.id} className="p-3.5 rounded-2xl bg-muted/40 border border-primary/20 hover:border-primary/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-sm text-foreground">
+                                  {evt.title}
+                                </span>
+                                {evt.category && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-bold border-primary/30">
+                                    {evt.category}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-semibold">
+                                <span>📅 {dateDisplay} • {evt.time || "10:00 AM"}</span>
+                                <span>•</span>
+                                <span>🏢 {evt.organizer || "Campus Club"}</span>
+                              </div>
+                            </div>
+                            <Link href={`/events/${evt.id}`}>
+                              <Button size="sm" className="h-8 gap-1.5 text-xs font-bold shrink-0">
+                                View Event <ArrowRight className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-muted/40 border border-primary/20 space-y-2">
+                      <h4 className="text-sm font-black text-foreground">
+                        {selectedVenue.upcomingEventTitle}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-semibold">
+                        <span>📅 {selectedVenue.upcomingEventDate}</span>
+                        <Badge variant="secondary" className="text-[10px] font-bold">{selectedVenue.organizer}</Badge>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Amenities Tags */}

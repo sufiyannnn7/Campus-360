@@ -33,6 +33,19 @@ function mapProfileToUser(profile: any, emailFallback?: string): User {
   };
 }
 
+function getAuthRedirectUrl(path: string): string {
+  const prodUrl = "https://campus360nkocet.onrender.com";
+  const customUrl = (typeof import.meta !== "undefined" && (import.meta.env.VITE_SITE_URL || import.meta.env.VITE_APP_URL)) || prodUrl;
+
+  if (typeof window !== "undefined") {
+    const isLocal = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1");
+    if (!isLocal) {
+      return `${window.location.origin}${path}`;
+    }
+  }
+  return `${customUrl.replace(/\/$/, "")}${path}`;
+}
+
 export const authService = {
   async getMe(): Promise<User | null> {
     const cachedUserStr = localStorage.getItem("campus360_user");
@@ -40,7 +53,7 @@ export const authService = {
     if (cachedUserStr) {
       try {
         cachedUser = JSON.parse(cachedUserStr);
-      } catch {}
+      } catch { }
     }
 
     if (!isSupabaseConfigured()) {
@@ -111,15 +124,19 @@ export const authService = {
       throw new Error("Email and password are required.");
     }
 
-    const isAdminUser = email === "sufiyannnn7@gmail.com";
+    const adminEmails = ["sufiyannnn7@gmail.com", "admin@nkocet.ac.in", "vidapvinayak@gmail.com"];
+    const isAdminUser = adminEmails.includes(email.trim().toLowerCase());
+    const adminDisplayName = email.trim().toLowerCase().includes("vidapvinayak")
+      ? "Vinayak Vidap (Admin)"
+      : "Sufiyan Shaikh (Super Admin)";
 
     if (!isSupabaseConfigured()) {
       const data = await apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, credentials);
       const token = data?.token || (data as any)?.accessToken || "mock-token";
       const userRole = isAdminUser ? "admin" : (credentials.role || "student");
       const userObj: User = {
-        id: isAdminUser ? "admin-sufiyan" : 1,
-        name: isAdminUser ? "Sufiyan Shaikh (Super Admin)" : "Campus User",
+        id: isAdminUser ? "admin-designated" : 1,
+        name: isAdminUser ? adminDisplayName : "Campus User",
         email,
         role: userRole as UserRole,
         department: "Computer Science & Engineering",
@@ -150,14 +167,14 @@ export const authService = {
     authData = res.data;
     authError = res.error;
 
-    // If account doesn't exist yet in Supabase for sufiyannnn7@gmail.com, automatically register it
+    // If account doesn't exist yet in Supabase for designated admin users, automatically register it
     if (authError && isAdminUser) {
       const signupRes = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name: "Sufiyan Shaikh (Super Admin)",
+            name: adminDisplayName,
             role: "admin",
             department: "Computer Science & Engineering",
           },
@@ -188,14 +205,14 @@ export const authService = {
     const userObj: User = profile
       ? mapProfileToUser(profile, authData.user.email)
       : {
-          id: authData.user.id,
-          name: authData.user.user_metadata?.name || authData.user.email?.split("@")[0] || "User",
-          email: authData.user.email || "",
-          role: isAdminUser ? "admin" : ((authData.user.user_metadata?.role as UserRole) || "student"),
-          points: 0,
-          badgesCount: 0,
-          eventsAttended: 0,
-        };
+        id: authData.user.id,
+        name: authData.user.user_metadata?.name || authData.user.email?.split("@")[0] || "User",
+        email: authData.user.email || "",
+        role: isAdminUser ? "admin" : ((authData.user.user_metadata?.role as UserRole) || "student"),
+        points: 0,
+        badgesCount: 0,
+        eventsAttended: 0,
+      };
 
     if (isAdminUser) {
       userObj.role = "admin";
@@ -203,7 +220,7 @@ export const authService = {
       // Silently sync profile role in Supabase if needed
       try {
         await supabase.from("profiles").update({ role: "admin" }).eq("id", authData.user.id);
-      } catch {}
+      } catch { }
     }
 
     localStorage.setItem("campus360_user", JSON.stringify(userObj));
@@ -256,7 +273,7 @@ export const authService = {
       email,
       password,
       options: {
-        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/login?confirmed=true` : undefined,
+        emailRedirectTo: getAuthRedirectUrl("/login?confirmed=true") || undefined,
         data: {
           name,
           role,
@@ -455,9 +472,7 @@ export const authService = {
       };
     }
 
-    const redirectTo = typeof window !== "undefined"
-      ? `${window.location.origin}/reset-password`
-      : undefined;
+    const redirectTo = getAuthRedirectUrl("/reset-password") || undefined;
 
     const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo,

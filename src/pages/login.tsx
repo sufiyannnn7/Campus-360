@@ -28,6 +28,17 @@ export default function Login() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [legalModal, setLegalModal] = useState<"terms" | "privacy" | null>(null);
+  const [isEmailConfirmed, setIsEmailConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      if (searchParams.get("confirmed") === "true" || hashParams.get("type") === "signup" || hashParams.has("access_token")) {
+        setIsEmailConfirmed(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -162,7 +173,7 @@ export default function Login() {
             </p>
           </div>
 
-          {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("confirmed") === "true" && (
+          {(isEmailConfirmed || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("confirmed") === "true")) && (
             <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-2.5 text-xs font-semibold animate-in fade-in-50 duration-300">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
               <span>Email successfully confirmed! Your Campus 360 account is activated. Please sign in below.</span>

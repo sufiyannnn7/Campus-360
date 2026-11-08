@@ -61,18 +61,19 @@ export const notificationsService = {
         const userListByEmail = JSON.parse(localStorage.getItem(`campus360_user_notifications_${user.email}`) || "[]");
         localNotifs = [...localNotifs, ...userListByEmail];
       }
-      const genericStudent = JSON.parse(localStorage.getItem("campus360_student_notifications") || "[]");
-      localNotifs = [...localNotifs, ...genericStudent];
+      // Only include generic notifications if not logged in
+      if (!user) {
+        const genericStudent = JSON.parse(localStorage.getItem("campus360_student_notifications") || "[]");
+        localNotifs = [...localNotifs, ...genericStudent];
+      }
     } catch {}
 
     const mappedLocal = localNotifs.map(mapRowToNotification);
 
     if (!isSupabaseConfigured()) {
-      const remote = await apiClient.get<CampusNotification[]>(API_ENDPOINTS.NOTIFICATIONS.LIST, { params }).catch(() => []);
-      const merged = [...mappedLocal, ...(Array.isArray(remote) ? remote.map(mapRowToNotification) : [])];
       const deletedIds: (string | number)[] = JSON.parse(localStorage.getItem("campus360_deleted_notifications") || "[]");
       const seen = new Set();
-      return merged.filter(n => {
+      return mappedLocal.filter(n => {
         if (deletedIds.includes(n.id) || seen.has(n.id)) return false;
         seen.add(n.id);
         return true;
@@ -92,7 +93,7 @@ export const notificationsService = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Supabase listNotifications error:", error);
+        console.warn("Supabase listNotifications notice:", error.message);
         return mappedLocal;
       }
 
@@ -106,7 +107,7 @@ export const notificationsService = {
         return true;
       });
     } catch (err: any) {
-      console.error("Failed to load notifications from Supabase:", err);
+      console.warn("Failed to load notifications from Supabase:", err);
       return mappedLocal;
     }
   },

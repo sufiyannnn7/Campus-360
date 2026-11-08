@@ -251,6 +251,9 @@ async function request<T = any>(endpoint: string, options: RequestOptions = {}):
     }
 
     if (!res.ok && res.status >= 400 && res.status !== 404) {
+      if (env.enableMockFallback && (res.status === 431 || res.status >= 500)) {
+        return handleMockFallback(endpoint, options) as T;
+      }
       const errorData = await res.json().catch(() => ({ message: res.statusText }));
       throw new ApiError(errorData.message || `Request failed with status ${res.status}`, res.status, errorData);
     }

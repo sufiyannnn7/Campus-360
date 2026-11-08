@@ -67,15 +67,63 @@ export function AIAssistant() {
       }
     }
 
-    // 4. Certificates & QR Verification
-    if (q.includes("cert") || q.includes("badge") || q.includes("verify") || q.includes("qr")) {
+    // 4. Coordinator Role & Creating New Clubs
+    if (q.includes("become coordinator") || q.includes("coordinator") || q.includes("new club") || q.includes("create club") || q.includes("lead club") || q.includes("start club") || q.includes("charter")) {
+      return {
+        reply: "👑 **Becoming a Club Coordinator or Proposing a Club**:\n\n• Go to the **Coordinator Hub** (`/coordinator`)\n• Choose an existing club or select **'+ Create / Propose New Club'**\n• Submit your statement of purpose and PRN to the Admin\n• Once approved, you gain full coordinator permissions to publish events, post circulars, and manage recruitment drives for your club!",
+        actionLink: { label: "Go to Coordinator Application →", href: "/coordinator" }
+      }
+    }
+
+    // 5. Following Clubs & Live Notifications
+    if (q.includes("follow") || q.includes("notification") || q.includes("alert") || q.includes("live notice")) {
+      return {
+        reply: "🔔 **Live Club Notifications**:\n\nTo get instant, real-time alerts:\n1. Open the **Clubs Directory** (`/clubs`)\n2. Tap **Join Club / Follow** on any club (e.g. E-Cell, CSESA, GDG)\n3. Whenever that club posts an event or notice, you receive live notification cards in your notification feed!",
+        actionLink: { label: "Explore & Follow Clubs →", href: "/clubs" }
+      }
+    }
+
+    // 6. Points, Leaderboard, & Activity Badges
+    if (q.includes("point") || q.includes("leaderboard") || q.includes("rank") || q.includes("xp") || q.includes("score") || q.includes("badge")) {
+      return {
+        reply: "🏆 **Campus 360 Points & Leaderboard**:\n\n• Attending an event: **+20 to +50 Points**\n• Winning a hackathon/competition: **+100 Points**\n• Club Core Coordinator duty: **+150 Points**\n• View the real-time student leaderboard and department standings on the Leaderboard page!",
+        actionLink: { label: "View Live Leaderboards →", href: "/leaderboard" }
+      }
+    }
+
+    // 7. Leaving Club & Successor Rules
+    if (q.includes("leave club") || q.includes("resign") || q.includes("transfer") || q.includes("leave my club")) {
+      return {
+        reply: "🚪 **Club Coordinator Handover Rules**:\n\n• If your club has multiple coordinators, you can step down anytime with one click in the Coordinator Hub.\n• If you are the **only coordinator**, platform governance requires you to promote a successor from your active members before stepping down, ensuring club continuity!",
+        actionLink: { label: "Open Coordinator Hub →", href: "/coordinator/dashboard" }
+      }
+    }
+
+    // 8. Official Circulars & Campus Bulletins
+    if (q.includes("circular") || q.includes("news") || q.includes("bulletin") || q.includes("notice") || q.includes("announcement")) {
+      return {
+        reply: "📰 **Campus Bulletins & Circulars**:\n\nOfficial university circulars, exam schedule updates, and club reports are published on the **News Feed** (`/news`). System administrators and club coordinators can publish notices with images and instant broadcast alerts.",
+        actionLink: { label: "Read Campus Bulletins →", href: "/news" }
+      }
+    }
+
+    // 9. Canteen, Hostels & Campus Facilities
+    if (q.includes("canteen") || q.includes("food") || q.includes("hostel") || q.includes("facility") || q.includes("mess") || q.includes("library")) {
+      return {
+        reply: "🏫 **NKOCET Campus Facilities**:\n\n• **Big Canteen**: 08:00 AM - 08:00 PM (Main Dining Food Court)\n• **Small Canteen**: 08:30 AM - 07:00 PM (Sports Courts Plaza)\n• **Girls Hostel (GH)** & **Boys Hostel (BH)**: 24/7 security, Wi-Fi, biometric security\n• **Playground (PG)** & Sports Courts: Cricket, Football, Volleyball & Synthetic Basketball",
+        actionLink: { label: "Open Campus Map →", href: "/map" }
+      }
+    }
+
+    // 10. Certificates & QR Verification
+    if (q.includes("cert") || q.includes("verify") || q.includes("qr")) {
       return {
         reply: "🎓 All event participation and achievement certificates on Campus 360 are cryptographically signed and 100% QR-verifiable! Students can view and download PDFs from their profile, while employers can verify codes instantly at `/certificates/verify/NKOCET-2026-X`.",
         actionLink: { label: "View My Certificates →", href: "/certificates" }
       }
     }
 
-    // 5. Recruitments & Joining Clubs
+    // 11. Recruitments & Joining Clubs
     if (q.includes("join") || q.includes("recruit") || q.includes("apply") || q.includes("member")) {
       return {
         reply: "✨ E-Cell, CSESA, GDG, Future Tech, and SAE teams are actively recruiting new members! You can browse open core roles (Technical, Design, Management) and apply directly from the Recruitments portal.",
@@ -83,15 +131,15 @@ export function AIAssistant() {
       }
     }
 
-    // 6. Login & Role Access
-    if (q.includes("login") || q.includes("role") || q.includes("faculty") || q.includes("admin") || q.includes("coordinator") || q.includes("student")) {
+    // 12. Login & Role Access
+    if (q.includes("login") || q.includes("role") || q.includes("faculty") || q.includes("admin") || q.includes("student")) {
       return {
         reply: "🔐 Campus 360 supports 4 specialized role interfaces:\n\n• **Student**: Event passes, certificates & iCal calendar\n• **Faculty**: Event approvals & attendance rosters\n• **Club Lead**: Manage club info, recruitments & events\n• **Admin**: System-wide platform KPIs & user management\n\nTry instant demo sign-ins on the Login page!",
         actionLink: { label: "Go to Login Page →", href: "/login" }
       }
     }
 
-    // 7. Venue / Map Questions
+    // 13. Venue / Map Questions
     if (q.includes("where") || q.includes("location") || q.includes("venue") || q.includes("map") || q.includes("seminar hall")) {
       return {
         reply: "📍 **Key Campus Venues**:\n\n• **College Seminar Hall**: Main Academic Building, Ground Floor (Eureka Pitching & Inaugurations)\n• **Central Computer Center**: CSE Block, 2nd Floor (CSESA Hackathons)\n• **SAE Workshop & Lawn**: Mechanical Block Quadrangle (Team Avengineers & Ashwamedh)\n• **Main Auditorium**: Central Admin Block, 1st Floor (Rotaract & Cultural Nights)",
@@ -99,9 +147,9 @@ export function AIAssistant() {
       }
     }
 
-    // 8. General Intelligent Fallback Response
+    // 14. General Intelligent Fallback Response
     return {
-      reply: `💡 I'm here to assist with everything NKOCET! You can ask me about:\n\n• **Events**: "What's happening on Aug 22?" or "Show hackathons"\n• **Clubs**: "How to join CSESA?" or "Tell me about E-Cell"\n• **Certificates**: "How to download QR certificates"\n• **Venues**: "Where is the Seminar Hall?"`,
+      reply: `💡 I'm here to assist with everything NKOCET! You can ask me about:\n\n• **Clubs**: "How to become a club coordinator?" or "Tell me about E-Cell"\n• **Notifications**: "How to follow clubs for live alerts?"\n• **Leaderboard**: "How do points work?"\n• **Events**: "Show upcoming hackathons"\n• **Venues & Facilities**: "Where is the Seminar Hall?" or "Canteen timings"`,
       suggestedEvents: UPCOMING_EVENTS_DATA.slice(0, 2),
       actionLink: { label: "Explore Events Schedule →", href: "/events" }
     }

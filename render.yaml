@@ -15,3 +15,9 @@ services:
         value: /api
       - key: VITE_ENABLE_MOCK_FALLBACK
         value: "true"
+      - key: VITE_SITE_URL
+        value: https://campus360nkocet.onrender.com
+      - key: VITE_SUPABASE_URL
+        value: https://uzsccleskhfhbzsjpbuv.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: sb_publishable_mTd-zAmf2Yit3RULFFxVRA_dhNtp3iU

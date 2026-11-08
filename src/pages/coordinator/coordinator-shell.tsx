@@ -29,10 +29,15 @@ import {
   Menu,
   X,
   FileCheck2,
+  FileBadge,
   Plus,
   Lock,
   LogIn,
   Loader2,
+  LogOut,
+  AlertTriangle,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +59,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface NavItem {
   href: string;
@@ -64,12 +85,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/coordinator/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/coordinator/profile", label: "Club Profile & Pages", icon: Building2 },
+  { href: "/coordinator/profile", label: "My Club Profile", icon: Building2 },
   { href: "/coordinator/recruitment", label: "Recruitment Drives", icon: Layers },
   { href: "/coordinator/applications", label: "Applications Pipeline", icon: UserCheck },
   { href: "/coordinator/members", label: "Club Members", icon: Users },
   { href: "/coordinator/team", label: "Team & Leadership", icon: ShieldCheck },
   { href: "/coordinator/events", label: "Club Events", icon: Calendar },
+  { href: "/coordinator/certificates", label: "Certificates", icon: FileBadge },
   { href: "/coordinator/news", label: "News & Notices", icon: Newspaper },
   { href: "/coordinator/achievements", label: "Achievements & Media", icon: Award },
   { href: "/coordinator/faqs", label: "FAQs & Contact", icon: HelpCircle },
@@ -79,9 +101,115 @@ const NAV_ITEMS: NavItem[] = [
 
 export function CoordinatorShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
-  const { clubs, activeClub, setActiveClubId, isLoading } = useCoordinator();
-  const [location] = useLocation();
+  const { clubs, activeClub, setActiveClubId, isLoading, refreshClubs } = useCoordinator();
+  const [location, setLocation] = useLocation();
+  const { toast } = useToast();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // Leave Club Modal State
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isCheckingCoordinators, setIsCheckingCoordinators] = useState(false);
+  const [clubCoordinators, setClubCoordinators] = useState<any[]>([]);
+  const [clubMembersList, setClubMembersList] = useState<any[]>([]);
+  const [selectedPromoteMember, setSelectedPromoteMember] = useState<string>("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isActionExecuting, setIsActionExecuting] = useState(false);
+  const [leaveTab, setLeaveTab] = useState<"promote" | "delete">("promote");
+
+  const handleOpenLeaveModal = async () => {
+    if (!activeClub) return;
+    setIsLeaveModalOpen(true);
+    setIsCheckingCoordinators(true);
+    setDeleteConfirmText("");
+    setSelectedPromoteMember("");
+    try {
+      const [coords, members] = await Promise.all([
+        coordinatorService.getClubCoordinators(activeClub.id),
+        coordinatorService.getClubMembers(activeClub.id),
+      ]);
+      setClubCoordinators(coords);
+      const nonLeadMembers = members.filter(
+        (m: any) => m.userId !== user?.id && m.role !== "lead" && !coords.some((c: any) => c.id === m.userId)
+      );
+      setClubMembersList(nonLeadMembers);
+      if (nonLeadMembers.length > 0) {
+        setSelectedPromoteMember(nonLeadMembers[0].userId);
+      }
+    } catch (err) {
+      console.warn("Could not load coordinator roster:", err);
+    } finally {
+      setIsCheckingCoordinators(false);
+    }
+  };
+
+  const handleLeaveAsMultiple = async () => {
+    if (!activeClub) return;
+    setIsActionExecuting(true);
+    try {
+      await coordinatorService.leaveClubAsCoordinator(activeClub.id, user?.id);
+      toast({
+        title: "Resigned Successfully",
+        description: `You have stepped down as coordinator of ${activeClub.name}.`,
+      });
+      setIsLeaveModalOpen(false);
+      await refreshClubs();
+      setLocation("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Failed to leave", description: err?.message, variant: "destructive" });
+    } finally {
+      setIsActionExecuting(false);
+    }
+  };
+
+  const handlePromoteAndLeave = async () => {
+    if (!activeClub || !selectedPromoteMember) {
+      toast({ title: "Selection Required", description: "Please select a member to promote to coordinator.", variant: "destructive" });
+      return;
+    }
+    setIsActionExecuting(true);
+    try {
+      await coordinatorService.promoteMemberToCoordinator(activeClub.id, selectedPromoteMember);
+      await coordinatorService.leaveClubAsCoordinator(activeClub.id, user?.id);
+      toast({
+        title: "Successor Assigned & Left Club",
+        description: `New coordinator promoted. You have stepped down from ${activeClub.name}.`,
+      });
+      setIsLeaveModalOpen(false);
+      await refreshClubs();
+      setLocation("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Action Failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setIsActionExecuting(false);
+    }
+  };
+
+  const handleDeleteClub = async () => {
+    if (!activeClub) return;
+    if (deleteConfirmText.trim().toLowerCase() !== activeClub.name.trim().toLowerCase()) {
+      toast({
+        title: "Name Mismatch",
+        description: `Please type "${activeClub.name}" exactly to confirm permanent deletion.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsActionExecuting(true);
+    try {
+      await coordinatorService.deleteClub(activeClub.id, user?.id);
+      toast({
+        title: "Club Deleted",
+        description: `"${activeClub.name}" has been permanently removed.`,
+      });
+      setIsLeaveModalOpen(false);
+      await refreshClubs();
+      setLocation("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setIsActionExecuting(false);
+    }
+  };
 
   // Show spinner while checking auth session on fresh load or new device
   if (authLoading) {
@@ -185,11 +313,22 @@ export function CoordinatorShell({ children }: { children: React.ReactNode }) {
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {activeClub && (
-            <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold shadow-2xs">
-              <Link href={`/clubs/${activeClub.id}`} target="_blank">
-                <ExternalLink className="h-3.5 w-3.5" /> Preview Public Page
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold shadow-2xs">
+                <Link href={`/clubs/${activeClub.id}`} target="_blank">
+                  <ExternalLink className="h-3.5 w-3.5" /> Preview Public Page
+                </Link>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900 shadow-2xs cursor-pointer"
+                onClick={handleOpenLeaveModal}
+              >
+                <LogOut className="h-3.5 w-3.5" /> Leave Club
+              </Button>
+            </>
           )}
 
           <Button
@@ -247,6 +386,185 @@ export function CoordinatorShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Leave Club Modal */}
+      <Dialog open={isLeaveModalOpen} onOpenChange={setIsLeaveModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <LogOut className="h-5 w-5" />
+              <span>Leave {activeClub?.name}</span>
+            </DialogTitle>
+            <DialogDescription>
+              Manage coordinator leadership transition or club deletion.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isCheckingCoordinators ? (
+            <div className="py-8 flex flex-col items-center justify-center space-y-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground">Checking coordinator roster...</p>
+            </div>
+          ) : clubCoordinators.length <= 1 ? (
+            <div className="space-y-4">
+              <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 text-xs">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription>
+                  <strong>You are currently the only Coordinator for {activeClub?.name}.</strong>
+                  <br />
+                  A club cannot be left without active leadership. You must assign another member as coordinator before leaving, or permanently delete the club.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex border-b text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setLeaveTab("promote")}
+                  className={cn(
+                    "pb-2 px-3 border-b-2 transition-colors cursor-pointer",
+                    leaveTab === "promote"
+                      ? "border-primary text-primary font-bold"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  1. Assign Coordinator & Leave
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeaveTab("delete")}
+                  className={cn(
+                    "pb-2 px-3 border-b-2 transition-colors cursor-pointer text-rose-600",
+                    leaveTab === "delete"
+                      ? "border-rose-600 font-bold"
+                      : "border-transparent text-muted-foreground hover:text-rose-600"
+                  )}
+                >
+                  2. Delete Club
+                </button>
+              </div>
+
+              {leaveTab === "promote" && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">Select Member to Promote to Coordinator *</Label>
+                    {clubMembersList.length > 0 ? (
+                      <Select value={selectedPromoteMember} onValueChange={setSelectedPromoteMember}>
+                        <SelectTrigger className="w-full text-xs">
+                          <SelectValue placeholder="Choose an active club member..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clubMembersList.map((m: any) => (
+                            <SelectItem key={m.userId} value={m.userId} className="text-xs">
+                              {m.name || "Student Member"} ({m.department || "Engineering"})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="p-3 border rounded-xl bg-muted/40 text-xs text-muted-foreground space-y-1">
+                        <p className="font-semibold text-foreground">No other members in this club roster.</p>
+                        <p>To transfer leadership, invite members to the club first, or delete the club using the tab above.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsLeaveModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handlePromoteAndLeave}
+                      disabled={isActionExecuting || clubMembersList.length === 0 || !selectedPromoteMember}
+                      className="gap-1.5 font-bold text-xs"
+                    >
+                      {isActionExecuting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Promote & Leave Club
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+
+              {leaveTab === "delete" && (
+                <div className="space-y-3 pt-1">
+                  <div className="p-3 border border-rose-200 dark:border-rose-900/50 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 text-xs text-rose-900 dark:text-rose-300 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                      Permanent Deletion Warning
+                    </p>
+                    <p>
+                      This will permanently remove <strong>{activeClub?.name}</strong>, all associated events, members, and records. This action cannot be undone.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-foreground">
+                      Type <span className="font-mono text-rose-600 font-extrabold">{activeClub?.name}</span> to confirm:
+                    </Label>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder={`Type ${activeClub?.name} here`}
+                      className="text-xs font-medium"
+                    />
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsLeaveModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteClub}
+                      disabled={isActionExecuting || deleteConfirmText.trim().toLowerCase() !== (activeClub?.name || "").trim().toLowerCase()}
+                      className="gap-1.5 font-bold text-xs"
+                    >
+                      {isActionExecuting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Permanently Delete Club
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 border rounded-xl bg-muted/40 space-y-2 text-xs">
+                <p className="text-muted-foreground">
+                  There are currently <strong>{clubCoordinators.length} active coordinators</strong> managing this club. You can safely step down. The following coordinators will continue managing {activeClub?.name}:
+                </p>
+                <div className="space-y-1 pl-2">
+                  {clubCoordinators
+                    .filter((c: any) => c.id !== user?.id)
+                    .map((c: any) => (
+                      <div key={c.id} className="text-foreground font-semibold flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>{c.name}</span>
+                        {c.email && <span className="text-muted-foreground font-normal">({c.email})</span>}
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button variant="outline" size="sm" onClick={() => setIsLeaveModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleLeaveAsMultiple}
+                  disabled={isActionExecuting}
+                  className="gap-1.5 font-bold text-xs"
+                >
+                  {isActionExecuting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Confirm & Resign as Coordinator
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

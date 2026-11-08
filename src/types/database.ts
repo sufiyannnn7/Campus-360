@@ -1109,6 +1109,45 @@ export type Database = {
         Args: { club: number };
         Returns: boolean;
       };
+      submit_role_elevation_request: {
+        Args: {
+          p_target_role: string;
+          p_club_id?: number | null;
+          p_club_name?: string | null;
+          p_department?: string | null;
+          p_prn?: string | null;
+          p_justification?: string | null;
+          p_user_id?: string | null;
+          p_user_name?: string | null;
+          p_user_email?: string | null;
+        };
+        Returns: number;
+      };
+      get_pending_role_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: number;
+          user_id: string;
+          user_name: string;
+          user_email: string;
+          target_role: string;
+          club_id: number | null;
+          club_name: string | null;
+          department: string | null;
+          prn: string | null;
+          justification: string | null;
+          status: string;
+          submitted_at: string;
+        }[];
+      };
+      resolve_role_elevation_request: {
+        Args: {
+          p_request_id: number;
+          p_approve: boolean;
+          p_admin_notes?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
       user_role: UserRole;

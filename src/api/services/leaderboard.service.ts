@@ -24,8 +24,12 @@ export const leaderboardService = {
         .limit(limit);
 
       if (error) {
-        console.error("Supabase getLeaderboard error:", error);
-        throw new Error(error.message);
+        console.warn("Supabase getLeaderboard error, using fallback:", error.message);
+        return apiClient.get<LeaderboardEntry[]>(API_ENDPOINTS.LEADERBOARD.LIST, { params });
+      }
+
+      if (!data || data.length === 0) {
+        return apiClient.get<LeaderboardEntry[]>(API_ENDPOINTS.LEADERBOARD.LIST, { params });
       }
 
       return (data || []).map((row, index) => ({
@@ -35,14 +39,16 @@ export const leaderboardService = {
         department: row.department || "General",
         year: row.year || undefined,
         points: row.points ?? 0,
+        totalPoints: row.points ?? 0,
         eventsAttended: row.events_attended ?? 0,
         badgesCount: row.badges_count ?? 0,
+        badgeCount: row.badges_count ?? 0,
         avatarUrl: row.avatar_url || undefined,
         change: "same",
       }));
     } catch (err: any) {
-      console.error("Failed to load leaderboard from Supabase:", err);
-      throw err;
+      console.warn("Failed to load leaderboard from Supabase, using fallback:", err?.message);
+      return apiClient.get<LeaderboardEntry[]>(API_ENDPOINTS.LEADERBOARD.LIST, { params });
     }
   },
 };

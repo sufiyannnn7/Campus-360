@@ -48,6 +48,7 @@ export interface EventItem {
   coordinators?: Array<{ name: string; contact?: string; role?: string }>;
   prizes?: Array<{ position: string; reward: string }>;
   status?: EventStatus;
+  galleryUrls?: string[];
 }
 
 export interface EventFilterParams {

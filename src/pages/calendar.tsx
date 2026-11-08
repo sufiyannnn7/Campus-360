@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search,
   MapPin, Clock, ExternalLink, Download, Layers, Ticket, ArrowLeft,
-  Sparkles, Check, Building2, Flame
+  Sparkles, Check, CheckCircle2, Building2, Flame
 } from "lucide-react"
 import { Link } from "wouter"
 import { ScrollReveal } from "@/components/ui/scroll-reveal"
@@ -20,16 +20,37 @@ import {
 } from "date-fns"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { eventsService } from "@/api/services/events.service"
 
 type ViewMode = "month" | "week" | "day" | "agenda"
 
 export default function CalendarPage() {
   const { toast } = useToast()
-  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 7, 22))
+  const [currentDate, setCurrentDate] = useState<Date>(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>("month")
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
+  const [isJoining, setIsJoining] = useState(false)
+
+  const handleJoinEvent = async (evt: any) => {
+    try {
+      setIsJoining(true)
+      await eventsService.registerEvent(evt.id)
+      toast({
+        title: "Event Joined! 🎉",
+        description: `You are officially registered for "${evt.title}". Event pass saved to your dashboard.`,
+      })
+      setSelectedEvent(null)
+    } catch (err: any) {
+      toast({
+        title: "Registration Update",
+        description: err?.message || "You are already registered for this event.",
+      })
+    } finally {
+      setIsJoining(false)
+    }
+  }
 
   // Layer toggles
   const [layers, setLayers] = useState({
@@ -90,7 +111,7 @@ export default function CalendarPage() {
   }
 
   const handleToday = () => {
-    setCurrentDate(new Date(2026, 7, 22))
+    setCurrentDate(new Date())
   }
 
   // Month View Days computation
@@ -462,10 +483,13 @@ export default function CalendarPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      <Button size="sm" onClick={(e) => { e.stopPropagation(); handleJoinEvent(evt); }} disabled={isJoining} className="text-xs font-bold gap-1 bg-primary text-primary-foreground shadow-2xs">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Join Event
+                      </Button>
                       <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); exportToICal(evt); }} className="text-xs font-bold gap-1">
                         <Download className="h-3.5 w-3.5" /> iCal
                       </Button>
-                      <Button size="sm" onClick={(e) => { e.stopPropagation(); setSelectedEvent(evt); }} className="text-xs font-bold gap-1">
+                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedEvent(evt); }} className="text-xs font-bold gap-1">
                         View Pass →
                       </Button>
                     </div>
@@ -543,19 +567,22 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div className="pt-2 flex gap-3">
+              <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                <Button onClick={() => handleJoinEvent(selectedEvent)} disabled={isJoining} className="flex-1 font-bold text-xs gap-1.5 h-9 bg-primary text-primary-foreground shadow-sm">
+                  <CheckCircle2 className="h-4 w-4" /> Join / Register for Event
+                </Button>
                 <a
                   href={getGoogleCalendarUrl(selectedEvent)}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1"
+                  className="sm:w-auto"
                 >
                   <Button variant="outline" className="w-full font-bold text-xs gap-1.5 h-9">
-                    <ExternalLink className="h-4 w-4" /> Add to Google Calendar
+                    <ExternalLink className="h-4 w-4" /> Google Calendar
                   </Button>
                 </a>
-                <Button onClick={() => exportToICal(selectedEvent)} className="flex-1 font-bold text-xs gap-1.5 h-9">
-                  <Download className="h-4 w-4" /> Download .ics File
+                <Button onClick={() => exportToICal(selectedEvent)} variant="outline" className="font-bold text-xs gap-1.5 h-9">
+                  <Download className="h-4 w-4" /> .ics
                 </Button>
               </div>
             </div>

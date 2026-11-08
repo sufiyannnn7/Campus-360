@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useListRecruitments, useGetMe } from "@workspace/api-client-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { StaggerContainer, StaggerItem, ScrollReveal } from "@/components/ui/scroll-reveal"
-import { Calendar, Users, Briefcase, ArrowRight, CheckCircle2, Clock, Upload, FileText, UserCheck, ChevronRight, Layers } from "lucide-react"
+import { Calendar, Users, Briefcase, ArrowRight, CheckCircle2, Clock, Upload, FileText, UserCheck, ChevronRight, Layers, ShieldAlert, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { recruitmentsService } from "@/api/services/recruitments.service"
+import { coordinatorService } from "@/api/services/coordinator.service"
+import { useAuth } from "@/context/auth-context"
+import { Link } from "wouter"
 
 type ViewTab = "board" | "kanban" | "volunteers"
 type AppStage = "applied" | "under_review" | "shortlisted" | "interview" | "accepted" | "rejected"
@@ -34,18 +37,53 @@ const INITIAL_APPLICATIONS: SampleApplication[] = [
 ]
 
 export default function Recruitments() {
+  const { user } = useAuth()
   const { data: me } = useGetMe()
   const { toast } = useToast()
   const { data, isLoading } = useListRecruitments({})
 
-  const [activeTab, setActiveTab] = useState<ViewTab>("board")
+  const [activeTab, setActiveTab] = useState<ViewTab>("kanban")
   const [selectedRecruitment, setSelectedRecruitment] = useState<any | null>(null)
   const [coverLetter, setCoverLetter] = useState("")
   const [portfolioUrl, setPortfolioUrl] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [myClubs, setMyClubs] = useState<any[]>([])
+
+  useEffect(() => {
+    coordinatorService.getMyClubs().then(setMyClubs).catch(() => setMyClubs([]))
+  }, [user])
+
+  const isStaff = user?.role === "coordinator" || user?.role === "faculty" || user?.role === "admin" ||
+    user?.email?.toLowerCase().includes("sufiyan") || user?.email?.toLowerCase().includes("admin")
 
   // Kanban Board state for Club Coordinators & Admins
   const [applications, setApplications] = useState<SampleApplication[]>(INITIAL_APPLICATIONS)
+
+  if (!isStaff) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+          <ShieldAlert className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight">Recruitment & Volunteer Hub Access</h1>
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+            The Recruitment & Volunteer Hub is restricted to Club Faculty Advisors and appointed Student Club Coordinators for managing member pipelines and applications.
+          </p>
+        </div>
+        <div className="p-4 bg-muted/40 rounded-xl border max-w-md mx-auto text-xs text-muted-foreground space-y-3">
+          <p>If you are leading or founding a campus club, request coordinator elevation to manage positions and applications.</p>
+          <Link href="/coordinator">
+            <Button size="sm" className="w-full font-bold">
+              Apply for Club Coordinator / Faculty Access →
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const activeClubName = myClubs[0]?.name || "Assigned Club"
 
   const handleApply = async () => {
     if (!selectedRecruitment) return
@@ -54,8 +92,8 @@ export default function Recruitments() {
       await recruitmentsService.applyRecruitment(selectedRecruitment.id, {
         statementOfPurpose: coverLetter,
         portfolioUrl: portfolioUrl || undefined,
-        applicantName: me?.name,
-        applicantEmail: me?.email,
+        applicantName: me?.name || user?.name,
+        applicantEmail: me?.email || user?.email,
       })
 
       toast({
@@ -92,30 +130,45 @@ export default function Recruitments() {
       <ScrollReveal direction="down" duration={0.4}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Recruitment & Volunteer Hub</h1>
-            <p className="text-muted-foreground">Find open club positions, manage applications, and coordinate volunteer shifts on Campus 360.</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">Recruitment & Volunteer Hub</h1>
+              <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+                {user?.role === "faculty" ? "Faculty Advisor Mode" : "Club Coordinator Mode"}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Managing recruitment pipeline and volunteer shifts for <strong>{activeClubName}</strong>.
+            </p>
           </div>
 
-          {/* View Switcher Tabs */}
-          <div className="flex items-center border rounded-lg p-1 bg-muted/40 text-xs font-medium self-start">
-            <button
-              onClick={() => setActiveTab("board")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-md capitalize transition-all cursor-pointer",
-                activeTab === "board" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Open Positions
-            </button>
-            <button
-              onClick={() => setActiveTab("kanban")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-md capitalize transition-all flex items-center gap-1.5 cursor-pointer",
-                activeTab === "kanban" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Layers className="h-3.5 w-3.5" /> Coordinator Pipeline
-            </button>
+          <div className="flex items-center gap-3">
+            <Link href="/coordinator/recruitment">
+              <Button size="sm" className="gap-1.5 font-bold text-xs">
+                <Plus className="h-3.5 w-3.5" /> Launch Position
+              </Button>
+            </Link>
+
+            {/* View Switcher Tabs */}
+            <div className="flex items-center border rounded-lg p-1 bg-muted/40 text-xs font-medium self-start">
+              <button
+                onClick={() => setActiveTab("kanban")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-md capitalize transition-all flex items-center gap-1.5 cursor-pointer",
+                  activeTab === "kanban" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Layers className="h-3.5 w-3.5" /> Pipeline Board
+              </button>
+              <button
+                onClick={() => setActiveTab("board")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-md capitalize transition-all cursor-pointer",
+                  activeTab === "board" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Open Drives ({data?.length || 0})
+              </button>
+            </div>
           </div>
         </div>
       </ScrollReveal>

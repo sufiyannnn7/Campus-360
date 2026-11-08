@@ -8,24 +8,25 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
-import { Calendar, MapPin, Users, Ticket, CheckCircle2, ArrowLeft, Loader2, QrCode, Download, Share2, Sparkles, Building2 } from "lucide-react"
+import { Calendar, MapPin, Users, Ticket, CheckCircle2, ArrowLeft, Loader2, QrCode, Download, Share2, Sparkles, Building2, Navigation } from "lucide-react"
 
 export default function EventDetail() {
   const { id } = useParams()
-  const eventId = Number(id) || 1
+  const eventId = Number(id)
   const { toast } = useToast()
   const { data: user } = useGetMe()
   
-  const { data: apiEvent, isLoading } = useGetEvent(eventId as any)
+  const { data: apiEvent, isLoading } = useGetEvent(eventId)
   
-  // Fallback to rich local data if API returns null
-  const defaultEvent = UPCOMING_EVENTS_DATA.find((e) => e.id === eventId) || UPCOMING_EVENTS_DATA[0]
+  // Find in local mock data if present
+  const defaultEvent = UPCOMING_EVENTS_DATA.find((e) => e.id === eventId)
   const activeEvent: any = apiEvent || defaultEvent
 
   const [isRegistered, setIsRegistered] = useState(false)
   const [showPassModal, setShowPassModal] = useState(false)
 
   const handleRegister = () => {
+    if (!activeEvent) return
     setIsRegistered(true)
     setShowPassModal(true)
     toast({
@@ -35,6 +36,7 @@ export default function EventDetail() {
   }
 
   const handleCancel = () => {
+    if (!activeEvent) return
     setIsRegistered(false)
     toast({
       title: "Registration Cancelled",
@@ -42,12 +44,29 @@ export default function EventDetail() {
     })
   }
 
-  if (isLoading && !activeEvent) {
+  if (isLoading) {
     return (
       <div className="p-8 space-y-6 animate-pulse max-w-5xl mx-auto">
         <div className="h-64 bg-muted rounded-3xl w-full" />
         <div className="h-10 bg-muted rounded w-1/3" />
         <div className="h-32 bg-muted rounded w-full" />
+      </div>
+    )
+  }
+
+  if (!activeEvent) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-muted mx-auto flex items-center justify-center text-muted-foreground">
+          <Calendar className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-extrabold text-foreground">Event Not Found</h2>
+        <p className="text-sm text-muted-foreground">The event you are looking for does not exist or has been removed.</p>
+        <Link href="/events">
+          <Button variant="outline" size="sm" className="gap-1.5 font-semibold">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Events Directory
+          </Button>
+        </Link>
       </div>
     )
   }
@@ -173,9 +192,14 @@ export default function EventDetail() {
                   <div className="w-9 h-9 rounded-xl bg-teal-500/10 flex items-center justify-center shrink-0 text-teal-600 mt-0.5">
                     <MapPin className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <p className="font-extrabold text-foreground">{venueName}</p>
                     <p className="text-xs text-muted-foreground font-semibold">NKOCET Main Campus</p>
+                    <Link href={`/map?venue=${encodeURIComponent(venueName)}&event=${activeEvent.id}`}>
+                      <span className="text-[11px] text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer">
+                        Find on Campus Map <Navigation className="h-3 w-3" />
+                      </span>
+                    </Link>
                   </div>
                 </div>
 

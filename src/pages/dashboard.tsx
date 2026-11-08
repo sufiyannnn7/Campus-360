@@ -21,7 +21,7 @@ import {
   Calendar, Medal, Trophy, Star, ChevronRight, Bell, Ticket, Users,
   CheckCircle2, AlertTriangle, ShieldCheck, MapPin, Sparkles, Plus,
   FileText, Activity, Layers, ArrowUpRight, Check, UserCheck, Building2,
-  Clock, X, Newspaper, Send
+  Clock, X, Newspaper, Send, Loader2
 } from "lucide-react"
 import { Link } from "wouter"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast"
 import { coordinatorService, RoleElevationRequest, ClubApprovalItem } from "@/api/services/coordinator.service"
 import { clubsService } from "@/api/services/clubs.service"
 import { EventMediaUploader } from "@/components/events/event-media-uploader"
+import { ImageUploadDropzone } from "@/components/ui/image-upload-dropzone"
 
 export default function Dashboard() {
   const { user: authUser } = useAuth()
@@ -665,7 +666,7 @@ function AdminDashboardView({ user }: { user: any }) {
   // Admin Event Modal State
   const [isAdminEventOpen, setIsAdminEventOpen] = useState(false)
   const [adminEventTitle, setAdminEventTitle] = useState("")
-  const [adminEventCategory, setAdminEventCategory] = useState("Institute Hackathon")
+  const [adminEventCategory, setAdminEventCategory] = useState("Hackathon")
   const [adminEventVenue, setAdminEventVenue] = useState("Main Campus Auditorium")
   const [adminEventDate, setAdminEventDate] = useState("")
   const [adminEventCapacity, setAdminEventCapacity] = useState(250)
@@ -675,6 +676,7 @@ function AdminDashboardView({ user }: { user: any }) {
 
   // Admin Circular Modal State
   const [isAdminNewsOpen, setIsAdminNewsOpen] = useState(false)
+  const [isPublishingNews, setIsPublishingNews] = useState(false)
   const [adminNewsTitle, setAdminNewsTitle] = useState("")
   const [adminNewsSummary, setAdminNewsSummary] = useState("")
   const [adminNewsContent, setAdminNewsContent] = useState("")
@@ -728,6 +730,7 @@ function AdminDashboardView({ user }: { user: any }) {
   const [loadingClubApprovals, setLoadingClubApprovals] = useState(true)
 
   const loadRoleRequests = async () => {
+    setLoadingRequests(true)
     try {
       const reqs = await coordinatorService.getPendingRoleElevations()
       setRoleRequests(reqs)
@@ -787,7 +790,7 @@ function AdminDashboardView({ user }: { user: any }) {
     })
 
     try {
-      await coordinatorService.resolveRoleElevation(req.id, approve, req.targetRole, req.clubId, req.userId)
+      await coordinatorService.resolveRoleElevation(req.id, approve, req.targetRole, req.clubId, req.userId, req.clubName)
     } catch (err: any) {
       console.warn("Resolve role elevation warning:", err?.message)
     }
@@ -818,10 +821,11 @@ function AdminDashboardView({ user }: { user: any }) {
     }
 
     try {
-      await coordinatorService.saveClubEvent(1, {
+      await coordinatorService.saveClubEvent(null as any, {
         title: adminEventTitle.trim(),
         category: adminEventCategory,
         venue: adminEventVenue,
+        organizerName: "Campus 360 Administration",
         description: adminEventDesc.trim(),
         imageUrl: adminEventImage || undefined,
         bannerUrl: adminEventImage || undefined,
@@ -851,12 +855,14 @@ function AdminDashboardView({ user }: { user: any }) {
       return
     }
 
+    setIsPublishingNews(true)
     try {
-      await coordinatorService.saveClubNews(1, {
+      await coordinatorService.saveClubNews(null as any, {
         title: adminNewsTitle.trim(),
         summary: adminNewsSummary.trim(),
         content: adminNewsContent.trim() || adminNewsSummary.trim(),
         category: adminNewsCategory,
+        author: "Campus 360 Administration",
         imageUrl: adminNewsImage.trim() || undefined,
         isImportant: true,
         isPublished: true,
@@ -868,11 +874,13 @@ function AdminDashboardView({ user }: { user: any }) {
       setAdminNewsContent("")
       setAdminNewsImage("")
       toast({
-        title: "Institute Circular Broadcasted!",
-        description: `"${adminNewsTitle}" is now live on the public news feed and alerts.`,
+        title: "Your circular is live across Campus 360! 🎉",
+        description: `"${adminNewsTitle}" has been broadcast to all student feeds and alerts.`,
       })
     } catch (err: any) {
       toast({ title: "Broadcast Failed", description: err?.message, variant: "destructive" })
+    } finally {
+      setIsPublishingNews(false)
     }
   }
 
@@ -1094,11 +1102,21 @@ function AdminDashboardView({ user }: { user: any }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-bold">Category</Label>
-                <Input
+                <select
                   value={adminEventCategory}
                   onChange={(e) => setAdminEventCategory(e.target.value)}
-                  className="h-9 text-xs"
-                />
+                  className="w-full text-xs rounded-md border border-input bg-background px-3 h-9 focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                >
+                  <option value="Hackathon">Hackathon</option>
+                  <option value="Technical">Technical</option>
+                  <option value="Cultural">Cultural</option>
+                  <option value="Workshop">Workshop</option>
+                  <option value="Seminar">Seminar</option>
+                  <option value="Academic">Academic</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Club">Club</option>
+                  <option value="General">General</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs font-bold">Max Capacity</Label>
@@ -1202,12 +1220,13 @@ function AdminDashboardView({ user }: { user: any }) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-bold">Banner Image URL</Label>
-              <Input
+              <Label className="text-xs font-bold">Circular Document / Banner Image</Label>
+              <ImageUploadDropzone
                 value={adminNewsImage}
-                onChange={(e) => setAdminNewsImage(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="h-9 text-xs"
+                onChange={setAdminNewsImage}
+                aspect="banner"
+                label="Official Circular Image"
+                description="Drag & drop circular image or notice screenshot (auto-compressed)"
               />
             </div>
 
@@ -1224,8 +1243,98 @@ function AdminDashboardView({ user }: { user: any }) {
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setIsAdminNewsOpen(false)}>Cancel</Button>
-              <Button type="submit" size="sm" className="font-bold text-xs gap-1.5">
-                <Send className="h-3.5 w-3.5" /> Broadcast Notice
+              <Button type="submit" size="sm" disabled={isPublishingNews} className="font-bold text-xs gap-1.5">
+                {isPublishingNews ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Broadcasting Live...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" /> Broadcast Notice
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Create Club Modal */}
+      <Dialog open={isAdminClubOpen} onOpenChange={setIsAdminClubOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" /> Charter New Campus Club
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Establish a new student organization, society, or chapter on Campus 360.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateAdminClub} className="space-y-3 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Club Name *</Label>
+              <Input
+                value={adminClubName}
+                onChange={(e) => setAdminClubName(e.target.value)}
+                placeholder="e.g. Chugli gang or AI Innovators Club"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Category</Label>
+              <select
+                value={adminClubCategory}
+                onChange={(e) => setAdminClubCategory(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+              >
+                <option value="Technical">Technical</option>
+                <option value="Cultural">Cultural</option>
+                <option value="Sports">Sports</option>
+                <option value="Literary">Literary</option>
+                <option value="Social">Social</option>
+                <option value="Entrepreneurship">Entrepreneurship</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Tagline / Motto</Label>
+              <Input
+                value={adminClubTagline}
+                onChange={(e) => setAdminClubTagline(e.target.value)}
+                placeholder="e.g. Empowering Student Innovation"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Faculty Advisor (Optional)</Label>
+              <Input
+                value={adminClubAdvisor}
+                onChange={(e) => setAdminClubAdvisor(e.target.value)}
+                placeholder="e.g. Prof. Dr. Aayan Kazi"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold">Description</Label>
+              <Textarea
+                value={adminClubDesc}
+                onChange={(e) => setAdminClubDesc(e.target.value)}
+                placeholder="Official society mission and scope..."
+                rows={3}
+                className="text-xs resize-none"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsAdminClubOpen(false)}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={isSubmittingClub} className="font-bold text-xs gap-1.5">
+                {isSubmittingClub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Charter Club
               </Button>
             </DialogFooter>
           </form>

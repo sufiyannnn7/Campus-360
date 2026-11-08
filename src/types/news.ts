@@ -12,6 +12,10 @@ export interface NewsArticle {
   category?: string;
   author?: string;
   authorRole?: string;
+  authorAvatar?: string;
+  clubId?: number | null;
+  clubName?: string;
+  createdBy?: string | null;
   publishedAt?: string;
   date?: string;
   imageUrl?: string;

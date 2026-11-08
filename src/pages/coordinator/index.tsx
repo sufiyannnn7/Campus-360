@@ -16,6 +16,7 @@ import CoordinatorApplications from "./applications";
 import CoordinatorMembers from "./members";
 import CoordinatorTeam from "./team";
 import CoordinatorEvents from "./events";
+import CoordinatorCertificates from "./certificates";
 import CoordinatorNews from "./news";
 import CoordinatorAchievements from "./achievements";
 import CoordinatorFaqs from "./faqs";
@@ -43,6 +44,9 @@ export default function CoordinatorHub() {
     }
     if (location.startsWith("/coordinator/events")) {
       return <CoordinatorEvents />;
+    }
+    if (location.startsWith("/coordinator/certificates")) {
+      return <CoordinatorCertificates />;
     }
     if (location.startsWith("/coordinator/news")) {
       return <CoordinatorNews />;

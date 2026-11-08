@@ -24,6 +24,8 @@ export interface AppEnvConfig {
   supabaseUrl?: string;
   /** Optional Supabase anon key */
   supabaseAnonKey?: string;
+  /** Production or public Site URL for auth redirects */
+  siteUrl?: string;
 }
 
 export const env: AppEnvConfig = {
@@ -36,6 +38,7 @@ export const env: AppEnvConfig = {
   mockLatencyMs: Number(import.meta.env.VITE_MOCK_LATENCY_MS) || 200,
   supabaseUrl: import.meta.env.VITE_SUPABASE_URL || "",
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
+  siteUrl: import.meta.env.VITE_SITE_URL || import.meta.env.VITE_APP_URL || "https://campus360nkocet.onrender.com",
 };
 
 export default env;

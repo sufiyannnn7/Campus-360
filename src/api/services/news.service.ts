@@ -4,10 +4,23 @@
  * Supports Supabase news query with offline mock fallback.
  */
 
-import { apiClient } from "@/api/client";
-import { API_ENDPOINTS } from "@/api/endpoints";
 import { NewsArticle, NewsFilterParams } from "@/types/news";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { LATEST_NEWS_DATA } from "@/data/landing-data";
+
+function getLocalCustomNews(): NewsArticle[] {
+  try {
+    return JSON.parse(localStorage.getItem("campus360_custom_news") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalCustomNews(articles: NewsArticle[]) {
+  try {
+    localStorage.setItem("campus360_custom_news", JSON.stringify(articles));
+  } catch {}
+}
 
 function mapRowToNewsArticle(row: any): NewsArticle {
   const pubDate = row.published_at ? new Date(row.published_at) : new Date();
@@ -25,6 +38,10 @@ function mapRowToNewsArticle(row: any): NewsArticle {
     category: row.category || undefined,
     author: row.author || undefined,
     authorRole: row.author_role || undefined,
+    authorAvatar: row.author_avatar || undefined,
+    clubId: row.club_id || undefined,
+    clubName: row.club_name || undefined,
+    createdBy: row.created_by || undefined,
     publishedAt: row.published_at,
     date: dateFormatted,
     imageUrl: row.image_url || undefined,
@@ -36,8 +53,10 @@ function mapRowToNewsArticle(row: any): NewsArticle {
 
 export const newsService = {
   async listNews(params?: NewsFilterParams): Promise<NewsArticle[]> {
+    const localCustom = getLocalCustomNews();
+
     if (!isSupabaseConfigured()) {
-      return apiClient.get<NewsArticle[]>(API_ENDPOINTS.NEWS.LIST, { params });
+      return [...localCustom, ...LATEST_NEWS_DATA];
     }
 
     try {
@@ -60,35 +79,80 @@ export const newsService = {
 
       const { data, error } = await query;
       if (error) {
-        console.error("Supabase listNews error:", error);
-        throw new Error(error.message);
+        console.warn("Supabase listNews error, returning local cache:", error.message);
+        return [...localCustom, ...LATEST_NEWS_DATA];
       }
 
-      return (data || []).map(mapRowToNewsArticle);
+      const dbArticles = (data || []).map(mapRowToNewsArticle);
+      const combined = [...localCustom, ...dbArticles];
+      const seen = new Set<number>();
+      const deduped: NewsArticle[] = [];
+
+      for (const item of combined) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          deduped.push(item);
+        }
+      }
+
+      return deduped.length > 0 ? deduped : LATEST_NEWS_DATA;
     } catch (err: any) {
-      console.error("Failed to load news from Supabase:", err);
-      throw err;
+      console.warn("Failed to load news from Supabase, returning local cache:", err?.message);
+      return [...localCustom, ...LATEST_NEWS_DATA];
     }
   },
 
   async getNewsById(id: string | number): Promise<NewsArticle> {
-    if (!isSupabaseConfigured()) {
-      return apiClient.get<NewsArticle>(API_ENDPOINTS.NEWS.DETAIL(id));
-    }
-
     const numericId = Number(id);
-    const { data, error } = await supabase
-      .from("news_articles")
-      .select("*")
-      .eq("id", numericId)
-      .eq("is_published", true)
-      .single();
 
-    if (error || !data) {
-      throw new Error(error?.message || `Article #${id} not found.`);
+    // 1. Check local custom news first
+    const localCustom = getLocalCustomNews();
+    const foundLocal = localCustom.find(a => a.id === numericId || String(a.id) === String(id));
+    if (foundLocal) return foundLocal;
+
+    // 2. Check Supabase
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from("news_articles")
+          .select("*")
+          .eq("id", numericId)
+          .eq("is_published", true)
+          .maybeSingle();
+
+        if (data && !error) {
+          return mapRowToNewsArticle(data);
+        }
+      } catch (err) {
+        console.warn("Supabase getNewsById fallback:", err);
+      }
     }
 
-    return mapRowToNewsArticle(data);
+    // 3. Check mock news data
+    const mock = LATEST_NEWS_DATA.find((n) => n.id === numericId || String(n.id) === String(id));
+    if (mock) return mock;
+
+    throw new Error(`News article #${id} not found.`);
+  },
+
+  async deleteNews(id: string | number): Promise<void> {
+    const numericId = Number(id);
+
+    // Remove from local storage
+    const current = getLocalCustomNews();
+    saveLocalCustomNews(current.filter(n => n.id !== numericId && String(n.id) !== String(id)));
+
+    // Remove from Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase.from("news_articles").delete().eq("id", numericId);
+        if (error) {
+          console.warn("Supabase deleteNews notice:", error.message);
+        }
+      } catch (err) {
+        console.warn("Error deleting news from Supabase:", err);
+      }
+    }
   },
 };
 

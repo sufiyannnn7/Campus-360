@@ -15,13 +15,13 @@ import { ClubTeamRosterItem, ClubAchievementItem, ClubGalleryMediaItem, ClubFaqI
 
 export default function ClubDetail() {
   const { id } = useParams()
-  const clubId = Number(id) || 1
+  const clubId = Number(id)
   const { toast } = useToast()
   const { data: user } = useGetMe()
   
   const { data: apiClub, isLoading } = useGetClub(clubId as any)
   
-  const defaultClub = FEATURED_CLUBS_DATA.find((c) => c.id === clubId) || FEATURED_CLUBS_DATA[0]
+  const defaultClub = FEATURED_CLUBS_DATA.find((c) => c.id === clubId)
   
   const [clubData, setClubData] = useState<any>(null)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -89,10 +89,29 @@ export default function ClubDetail() {
     toast({ title: "Club Profile Updated!", description: "Changes have been saved successfully to your club page." })
   }
 
-  if (isLoading && !activeClub) {
+  if (isLoading) {
     return (
-      <div className="p-8 space-y-6 animate-pulse">
+      <div className="p-8 space-y-6 animate-pulse max-w-5xl mx-auto">
         <div className="h-64 bg-muted rounded-2xl w-full" />
+        <div className="h-10 bg-muted rounded w-1/3" />
+        <div className="h-32 bg-muted rounded w-full" />
+      </div>
+    )
+  }
+
+  if (!activeClub) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-muted mx-auto flex items-center justify-center text-muted-foreground">
+          <Building2 className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-extrabold text-foreground">Club Not Found</h2>
+        <p className="text-sm text-muted-foreground">The club you are looking for does not exist or is currently inactive.</p>
+        <Link href="/clubs">
+          <Button variant="outline" size="sm" className="gap-1.5 font-semibold">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Clubs Directory
+          </Button>
+        </Link>
       </div>
     )
   }

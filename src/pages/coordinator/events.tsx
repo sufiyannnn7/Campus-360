@@ -17,6 +17,7 @@ import {
   Users,
   Eye,
   Sparkles,
+  Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventMediaUploader } from "@/components/events/event-media-uploader";
+import { CertificateSettingsPanel } from "@/components/certificates/certificate-settings-panel";
+import { EventCertificateSettings } from "@/types/certificates";
+import { certificatesService } from "@/api/services/certificates.service";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +41,22 @@ import {
 import { useCoordinator } from "./coordinator-context";
 import { coordinatorService } from "@/api/services/coordinator.service";
 import { useToast } from "@/hooks/use-toast";
+
+const DEFAULT_CERT_SETTINGS: EventCertificateSettings = {
+  enabled: false,
+  title: "Certificate of Participation",
+  bodyText: "for active and enthusiastic participation in the event, demonstrating exceptional commitment and technical excellence.",
+  leftSignatory: {
+    name: "Dr. S. R. Kulkarni",
+    designation: "Faculty Advisor",
+    department: "Computer Science & Engineering",
+  },
+  rightSignatory: {
+    name: "Club Coordinator",
+    designation: "Lead Coordinator",
+    department: "Student Council",
+  },
+};
 
 export default function CoordinatorEvents() {
   const { activeClub } = useCoordinator();
@@ -58,6 +79,7 @@ export default function CoordinatorEvents() {
   const [mode, setMode] = useState("offline");
   const [imageUrl, setImageUrl] = useState("");
   const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [certSettings, setCertSettings] = useState<EventCertificateSettings>(DEFAULT_CERT_SETTINGS);
 
   const loadEvents = async () => {
     if (!activeClub) return;
@@ -90,6 +112,12 @@ export default function CoordinatorEvents() {
       setMode(event.mode || "offline");
       setImageUrl(event.imageUrl || event.bannerUrl || "");
       setGalleryUrls(event.galleryUrls || []);
+      setCertSettings(
+        event.certificateSettings || {
+          ...DEFAULT_CERT_SETTINGS,
+          enabled: Boolean(event.certificateEnabled),
+        }
+      );
     } else {
       setEditingEvent(null);
       setTitle("");
@@ -104,6 +132,7 @@ export default function CoordinatorEvents() {
       setMode("offline");
       setImageUrl("https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop&q=80");
       setGalleryUrls([]);
+      setCertSettings(DEFAULT_CERT_SETTINGS);
     }
     setIsModalOpen(true);
   };
@@ -129,7 +158,13 @@ export default function CoordinatorEvents() {
         imageUrl: imageUrl.trim() || undefined,
         bannerUrl: imageUrl.trim() || undefined,
         galleryUrls,
+        certificateEnabled: certSettings.enabled,
+        certificateSettings: certSettings,
       });
+
+      if (editingEvent?.id) {
+        await certificatesService.saveEventCertificateSettings(editingEvent.id, certSettings).catch(() => {});
+      }
 
       await loadEvents();
       setIsModalOpen(false);
@@ -178,29 +213,40 @@ export default function CoordinatorEvents() {
         {events.map((e) => (
           <Card key={e.id} className="border shadow-2xs p-4 flex flex-col justify-between space-y-3">
             {e.imageUrl && (
-              <div className="h-28 w-full rounded-xl overflow-hidden border bg-muted/20">
-                <img src={e.imageUrl} alt={e.title} className="h-full w-full object-cover" />
-              </div>
+              <Link href={`/events/${e.id}`}>
+                <div className="h-28 w-full rounded-xl overflow-hidden border bg-muted/20 hover:opacity-90 transition-opacity cursor-pointer">
+                  <img src={e.imageUrl} alt={e.title} className="h-full w-full object-cover" />
+                </div>
+              </Link>
             )}
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-[10px] font-bold">
-                  {e.category}
-                </Badge>
-                <Badge
-                  className={
-                    e.status === "upcoming"
-                      ? "bg-emerald-600 text-white text-[10px] capitalize"
-                      : "bg-muted text-muted-foreground text-[10px] capitalize"
-                  }
-                >
-                  {e.status}
-                </Badge>
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge variant="outline" className="text-[10px] font-bold">
+                    {e.category}
+                  </Badge>
+                  <Badge
+                    className={
+                      e.status === "upcoming"
+                        ? "bg-emerald-600 text-white text-[10px] capitalize"
+                        : "bg-muted text-muted-foreground text-[10px] capitalize"
+                    }
+                  >
+                    {e.status}
+                  </Badge>
+                </div>
+                {e.certificateEnabled && (
+                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px] gap-1">
+                    <Award className="h-3 w-3" /> Certs Enabled
+                  </Badge>
+                )}
               </div>
 
               <div>
-                <h4 className="font-extrabold text-sm text-foreground">{e.title}</h4>
+                <Link href={`/events/${e.id}`}>
+                  <h4 className="font-extrabold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">{e.title}</h4>
+                </Link>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1.5">
                   <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
                   <span>{new Date(e.startDatetime).toLocaleString()}</span>
@@ -218,6 +264,11 @@ export default function CoordinatorEvents() {
               </span>
 
               <div className="flex items-center gap-1">
+                <Button asChild variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer" title="Manage Certificates">
+                  <Link href={`/coordinator/certificates?eventId=${e.id}`}>
+                    <Award className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -257,7 +308,7 @@ export default function CoordinatorEvents() {
 
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold">
               {editingEvent ? "Edit Club Event" : "Create Club Event"}
@@ -267,90 +318,115 @@ export default function CoordinatorEvents() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Event Title *</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Hack360 24-Hour Hackathon"
-                className="h-9 text-xs"
-              />
-            </div>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid grid-cols-2 mb-2">
+              <TabsTrigger value="details" className="text-xs font-bold">Event Details</TabsTrigger>
+              <TabsTrigger value="certificates" className="text-xs font-bold flex items-center gap-1.5">
+                <Award className="h-3.5 w-3.5 text-amber-500" /> Certificate Settings
+                {certSettings.enabled && (
+                  <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 text-[10px] px-1.5 py-0 h-4">
+                    Active
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="grid grid-cols-2 gap-3">
+            <TabsContent value="details" className="space-y-3 py-2 text-xs">
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Category</Label>
+                <Label className="text-xs font-bold">Event Title *</Label>
                 <Input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="Workshop, Technical, Cultural..."
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Hack360 24-Hour Hackathon"
                   className="h-9 text-xs"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Category</Label>
+                  <Input
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="Workshop, Technical, Cultural..."
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Max Capacity</Label>
+                  <Input
+                    type="number"
+                    min={10}
+                    value={capacity}
+                    onChange={(e) => setCapacity(Number(e.target.value))}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Start Date & Time *</Label>
+                  <Input
+                    type="datetime-local"
+                    value={startDatetime}
+                    onChange={(e) => setStartDatetime(e.target.value)}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">End Date & Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={endDatetime}
+                    onChange={(e) => setEndDatetime(e.target.value)}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Max Capacity</Label>
+                <Label className="text-xs font-bold">Venue / Room</Label>
                 <Input
-                  type="number"
-                  min={10}
-                  value={capacity}
-                  onChange={(e) => setCapacity(Number(e.target.value))}
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  placeholder="e.g. Main Seminar Hall, IT Block"
                   className="h-9 text-xs"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Start Date & Time *</Label>
-                <Input
-                  type="datetime-local"
-                  value={startDatetime}
-                  onChange={(e) => setStartDatetime(e.target.value)}
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
+              <EventMediaUploader
+                mainImageUrl={imageUrl}
+                onMainImageChange={setImageUrl}
+                galleryUrls={galleryUrls}
+                onGalleryUrlsChange={setGalleryUrls}
+              />
 
               <div className="space-y-1">
-                <Label className="text-xs font-bold">End Date & Time</Label>
-                <Input
-                  type="datetime-local"
-                  value={endDatetime}
-                  onChange={(e) => setEndDatetime(e.target.value)}
-                  className="h-9 text-xs font-mono"
+                <Label className="text-xs font-bold">Description & Agenda</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Detailed event description, prerequisites, schedule..."
+                  rows={3}
+                  className="text-xs"
                 />
               </div>
-            </div>
+            </TabsContent>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Venue / Room</Label>
-              <Input
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                placeholder="e.g. Main Seminar Hall, IT Block"
-                className="h-9 text-xs"
+            <TabsContent value="certificates" className="py-2">
+              <CertificateSettingsPanel
+                settings={certSettings}
+                onChange={setCertSettings}
+                clubName={activeClub?.name}
+                clubLogoUrl={activeClub?.logoUrl}
+                eventName={title || "Event Title"}
+                eventDate={startDatetime ? new Date(startDatetime).toLocaleDateString() : undefined}
               />
-            </div>
-
-            <EventMediaUploader
-              mainImageUrl={imageUrl}
-              onMainImageChange={setImageUrl}
-              galleryUrls={galleryUrls}
-              onGalleryUrlsChange={setGalleryUrls}
-            />
-
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Description & Agenda</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Detailed event description, prerequisites, schedule..."
-                rows={3}
-                className="text-xs"
-              />
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>Cancel</Button>
