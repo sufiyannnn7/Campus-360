@@ -22,6 +22,7 @@ import {
   useEvent,
   useRegisterEvent,
   useCancelEventRegistration,
+  useDeleteEvent,
 } from "@/hooks/use-events";
 import {
   useClubs,
@@ -141,7 +142,7 @@ export function useGetEvent(id?: string | number) {
 export function useGetEventDetail(id?: string | number) {
   return useEvent(id);
 }
-export { useRegisterEvent, useCancelEventRegistration as useCancelRegistration };
+export { useRegisterEvent, useCancelEventRegistration as useCancelRegistration, useDeleteEvent };
 export function useRegisterForEvent() {
   return useRegisterEvent();
 }

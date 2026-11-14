@@ -21,13 +21,14 @@ import {
   Calendar, Medal, Trophy, Star, ChevronRight, Bell, Ticket, Users,
   CheckCircle2, AlertTriangle, ShieldCheck, MapPin, Sparkles, Plus,
   FileText, Activity, Layers, ArrowUpRight, Check, UserCheck, Building2,
-  Clock, X, Newspaper, Send, Loader2
+  Clock, X, Newspaper, Send, Loader2, Trash2
 } from "lucide-react"
 import { Link } from "wouter"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { coordinatorService, RoleElevationRequest, ClubApprovalItem } from "@/api/services/coordinator.service"
 import { clubsService } from "@/api/services/clubs.service"
+import { eventsService } from "@/api/services/events.service"
 import { EventMediaUploader } from "@/components/events/event-media-uploader"
 import { ImageUploadDropzone } from "@/components/ui/image-upload-dropzone"
 
@@ -729,6 +730,37 @@ function AdminDashboardView({ user }: { user: any }) {
   const [clubApprovals, setClubApprovals] = useState<ClubApprovalItem[]>([])
   const [loadingClubApprovals, setLoadingClubApprovals] = useState(true)
 
+  // Admin Events Management State
+  const [adminEvents, setAdminEvents] = useState<any[]>([])
+  const [loadingAdminEvents, setLoadingAdminEvents] = useState(false)
+  const [deletingAdminEventId, setDeletingAdminEventId] = useState<string | number | null>(null)
+
+  const loadAdminEvents = async () => {
+    setLoadingAdminEvents(true)
+    try {
+      const list = await eventsService.listEvents()
+      setAdminEvents(list || [])
+    } catch (e) {
+      console.warn("Failed to load admin events:", e)
+    } finally {
+      setLoadingAdminEvents(false)
+    }
+  }
+
+  const handleDeleteAdminEvent = async (id: string | number, title: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete event "${title}"?`)) return
+    try {
+      setDeletingAdminEventId(id)
+      await eventsService.deleteEvent(id)
+      setAdminEvents(prev => prev.filter(e => String(e.id) !== String(id)))
+      toast({ title: "Event Deleted", description: `"${title}" has been deleted.` })
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err?.message || "Failed to delete event.", variant: "destructive" })
+    } finally {
+      setDeletingAdminEventId(null)
+    }
+  }
+
   const loadRoleRequests = async () => {
     setLoadingRequests(true)
     try {
@@ -755,7 +787,7 @@ function AdminDashboardView({ user }: { user: any }) {
   const refreshAllAdminData = async () => {
     setLoadingRequests(true)
     setLoadingClubApprovals(true)
-    await Promise.all([loadRoleRequests(), loadClubApprovals()])
+    await Promise.all([loadRoleRequests(), loadClubApprovals(), loadAdminEvents()])
   }
 
   useEffect(() => {
@@ -764,6 +796,7 @@ function AdminDashboardView({ user }: { user: any }) {
     const handleRefresh = () => {
       loadRoleRequests()
       loadClubApprovals()
+      loadAdminEvents()
     }
 
     window.addEventListener("campus360_new_role_request", handleRefresh)
@@ -839,6 +872,7 @@ function AdminDashboardView({ user }: { user: any }) {
       setAdminEventTitle("")
       setAdminEventDesc("")
       setAdminEventGallery([])
+      loadAdminEvents()
       toast({
         title: "Campus Event Published!",
         description: `"${adminEventTitle}" has been scheduled and broadcast across Campus 360 calendar.`,
@@ -1069,6 +1103,87 @@ function AdminDashboardView({ user }: { user: any }) {
                   </Button>
                   <Button size="sm" onClick={() => handleApproveClubChange(ca.id, true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8">
                     <Check className="mr-1 h-3.5 w-3.5" /> Approve Update
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* 3. Campus Events Management (Admin) */}
+      <Card className="border shadow-sm p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-black tracking-tight">Active Campus Events</CardTitle>
+              <Badge className="bg-primary/10 text-primary font-bold border-primary/20 text-xs">
+                {adminEvents.length} Scheduled
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              Monitor, audit, and manage all events scheduled across campus departments and student clubs.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="outline" className="font-bold text-xs gap-1.5 shadow-2xs">
+              <Link href="/events">
+                <Calendar className="h-4 w-4 text-primary" /> View Directory
+              </Link>
+            </Button>
+            <Button onClick={() => setIsAdminEventOpen(true)} size="sm" className="font-bold text-xs gap-1.5 shadow-2xs">
+              <Plus className="h-4 w-4" /> New Event
+            </Button>
+          </div>
+        </div>
+
+        {loadingAdminEvents ? (
+          <div className="py-6 flex items-center justify-center text-xs text-muted-foreground gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading campus events...
+          </div>
+        ) : adminEvents.length === 0 ? (
+          <div className="py-6 text-center border rounded-xl bg-muted/20 text-xs text-muted-foreground">
+            No events scheduled yet. Tap "New Event" to publish one.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {adminEvents.slice(0, 6).map((evt: any) => (
+              <div key={evt.id} className="p-3.5 rounded-xl border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-primary/40 transition-colors">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-foreground">{evt.title}</span>
+                    <Badge variant="secondary" className="text-[10px] font-bold">
+                      {evt.category}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 font-medium">
+                      <Clock className="h-3 w-3 text-primary" /> {evt.date} • {evt.time}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> {typeof evt.venue === "string" ? evt.venue : evt.venue?.name || "Campus Auditorium"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button asChild size="sm" variant="outline" className="h-8 text-xs font-semibold">
+                    <Link href={`/events/${evt.id}`}>View Pass →</Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={deletingAdminEventId === evt.id}
+                    onClick={() => handleDeleteAdminEvent(evt.id, evt.title)}
+                    className="h-8 text-xs font-bold gap-1 shadow-xs cursor-pointer"
+                    title="Delete Event"
+                  >
+                    {deletingAdminEventId === evt.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Delete
                   </Button>
                 </div>
               </div>

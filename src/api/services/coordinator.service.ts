@@ -6,6 +6,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { eventsService } from "@/api/services/events.service";
 import {
   CoordinatorClub,
   CoordinatorDashboardStats,
@@ -1611,15 +1612,12 @@ export const coordinatorService = {
   },
 
   async deleteClubEvent(clubId: number, eventId: number): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      MOCK_EVENTS = MOCK_EVENTS.filter(e => e.id !== eventId);
-      return;
+    await eventsService.deleteEvent(eventId);
+    MOCK_EVENTS = MOCK_EVENTS.filter(e => e.id !== eventId);
+
+    if (clubId) {
+      await this.logActivity(clubId, `Deleted Event #${eventId}`, "Event", eventId.toString());
     }
-
-    const { error } = await supabase.from("events").delete().eq("id", eventId).eq("organizer_club_id", clubId);
-    if (error) throw new Error(error.message);
-
-    await this.logActivity(clubId, `Deleted Event #${eventId}`, "Event", eventId.toString());
   },
 
   async getClubNews(clubId: number) {

@@ -18,20 +18,44 @@ function getLocalCustomEvents(): EventItem[] {
   }
 }
 
+function getDeletedEventIds(): Set<string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem("campus360_deleted_events") || "[]");
+    return new Set((raw || []).map(String));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedEventId(id: string | number) {
+  try {
+    const set = getDeletedEventIds();
+    set.add(String(id));
+    localStorage.setItem("campus360_deleted_events", JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error("Failed to persist deleted event ID:", e);
+  }
+}
+
 function mapLandingEventToEventItem(e: any): EventItem {
   return {
     id: e.id,
     title: e.title,
+    tagline: e.tagline,
+    description: e.description,
     date: e.date,
+    startDatetime: e.startDatetime,
+    endDatetime: e.endDatetime,
     time: e.time,
     category: e.category,
     venue: e.venue,
     organizer: e.organizer,
-    bannerUrl: e.image,
-    posterUrl: e.image,
-    registeredCount: e.attendeesCount || 0,
-    seatsLeft: e.spotsLeft,
-    status: "upcoming",
+    bannerUrl: e.bannerUrl || e.image,
+    posterUrl: e.posterUrl || e.bannerUrl || e.image,
+    registeredCount: e.registeredCount || e.attendeesCount || 0,
+    seatsLeft: e.seatsLeft || e.spotsLeft,
+    status: e.status || "upcoming",
+    galleryUrls: e.galleryUrls || [],
   };
 }
 
@@ -78,9 +102,11 @@ function mapRowToEventItem(row: any, isRegistered = false): EventItem {
 export const eventsService = {
   async listEvents(params?: EventFilterParams): Promise<EventItem[]> {
     const localEvents = getLocalCustomEvents();
+    const deletedIds = getDeletedEventIds();
 
     if (!isSupabaseConfigured()) {
-      return [...localEvents, ...DEFAULT_MOCK_EVENTS];
+      const allMock = [...localEvents, ...DEFAULT_MOCK_EVENTS];
+      return allMock.filter((e) => !deletedIds.has(String(e.id)));
     }
 
     try {
@@ -113,7 +139,8 @@ export const eventsService = {
       }
 
       if (error || !data || data.length === 0) {
-        return [...localEvents, ...DEFAULT_MOCK_EVENTS];
+        const allMock = [...localEvents, ...DEFAULT_MOCK_EVENTS];
+        return allMock.filter((e) => !deletedIds.has(String(e.id)));
       }
 
       // Check current user registrations to flag isRegistered
@@ -139,20 +166,26 @@ export const eventsService = {
       const deduped: EventItem[] = [];
 
       for (const item of combined) {
-        if (!seen.has(item.id)) {
+        if (!seen.has(item.id) && !deletedIds.has(String(item.id))) {
           seen.add(item.id);
           deduped.push(item);
         }
       }
 
-      return deduped.length > 0 ? deduped : DEFAULT_MOCK_EVENTS;
+      return deduped.length > 0 ? deduped : DEFAULT_MOCK_EVENTS.filter((e) => !deletedIds.has(String(e.id)));
     } catch (err: any) {
       console.warn("Failed to load events from Supabase, returning local data:", err);
-      return [...localEvents, ...DEFAULT_MOCK_EVENTS];
+      const allMock = [...localEvents, ...DEFAULT_MOCK_EVENTS];
+      return allMock.filter((e) => !deletedIds.has(String(e.id)));
     }
   },
 
   async getEventById(id: string | number): Promise<EventItem> {
+    const deletedIds = getDeletedEventIds();
+    if (deletedIds.has(String(id))) {
+      throw new Error(`Event #${id} has been deleted.`);
+    }
+
     const numericId = Number(id);
 
     // 1. Check local custom events first
@@ -205,6 +238,33 @@ export const eventsService = {
     if (mock) return mock;
 
     throw new Error(`Event #${id} not found.`);
+  },
+
+  async deleteEvent(id: string | number): Promise<void> {
+    saveDeletedEventId(id);
+
+    // Clean up local custom events
+    try {
+      const localEvents = getLocalCustomEvents().filter((e) => String(e.id) !== String(id));
+      localStorage.setItem("campus360_custom_events", JSON.stringify(localEvents));
+    } catch (e) {
+      console.warn("Error updating local custom events during delete:", e);
+    }
+
+    // If Supabase configured, delete from DB
+    if (isSupabaseConfigured()) {
+      try {
+        const numId = Number(id);
+        if (!isNaN(numId)) {
+          const { error } = await supabase.from("events").delete().eq("id", numId);
+          if (error) {
+            console.warn("Supabase delete event notice:", error.message);
+          }
+        }
+      } catch (err) {
+        console.warn("Supabase deleteEvent error:", err);
+      }
+    }
   },
 
   async registerEvent(id: string | number, payload?: EventRegistrationPayload): Promise<any> {

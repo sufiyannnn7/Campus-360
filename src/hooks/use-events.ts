@@ -61,3 +61,18 @@ export function useCancelEventRegistration() {
     },
   });
 }
+
+export function useDeleteEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string | number) => eventsService.deleteEvent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventQueryKeys.all });
+      toast.success("Event removed successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete event");
+    },
+  });
+}

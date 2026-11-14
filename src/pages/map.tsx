@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -224,7 +224,16 @@ export default function CampusMapPage() {
       v.upcomingEventTitle.toLowerCase().includes(search.toLowerCase())
   )
 
-  const allAvailableEvents = liveEvents.length > 0 ? liveEvents : (UPCOMING_EVENTS_DATA as any)
+  const allAvailableEvents = useMemo(() => {
+    let deletedSet = new Set<string>()
+    try {
+      const raw = JSON.parse(localStorage.getItem("campus360_deleted_events") || "[]")
+      deletedSet = new Set((raw || []).map(String))
+    } catch {}
+
+    const source = liveEvents.length > 0 ? liveEvents : (UPCOMING_EVENTS_DATA as any)
+    return source.filter((e: any) => !deletedSet.has(String(e.id)))
+  }, [liveEvents])
 
   const getEventsForVenue = (location: CampusVenue) => {
     return allAvailableEvents.filter((e: any) => {

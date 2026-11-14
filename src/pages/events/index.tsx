@@ -5,11 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StaggerContainer, StaggerItem, ScrollReveal } from "@/components/ui/scroll-reveal";
-import { Calendar, Search, MapPin, ArrowLeft, Clock, ChevronDown, History, CheckCircle2 } from "lucide-react";
+import { Calendar, Search, MapPin, ArrowLeft, Clock, ChevronDown, History, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { cn, getStatusColor } from "@/lib/utils";
 import { UPCOMING_EVENTS_DATA } from "@/data/landing-data";
+import { useAuth } from "@/context/auth-context";
+import { eventsService } from "@/api/services/events.service";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CATEGORY_TABS = [
   { id: "all", label: "All Events" },
@@ -28,10 +32,41 @@ const TIMELINE_TABS = [
 ];
 
 export default function Events() {
+  const { user: authUser } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const isAdmin = authUser?.role === "admin" || authUser?.email?.toLowerCase().includes("sufiyan") || authUser?.email?.toLowerCase().includes("admin");
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [timelineTab, setTimelineTab] = useState<string>("all");
   const [limit, setLimit] = useState<number>(6);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const handleDeleteEvent = async (e: React.MouseEvent, eventId: string | number, eventTitle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete event "${eventTitle}"?`)) {
+      return;
+    }
+    try {
+      setDeletingId(eventId);
+      await eventsService.deleteEvent(eventId);
+      toast({
+        title: "Event Deleted",
+        description: `"${eventTitle}" has been removed.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Failed to delete event.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const { data, isLoading } = useListEvents({
     q: search || undefined,
@@ -117,7 +152,7 @@ export default function Events() {
                     {event.category}
                   </span>
                 </div>
-                <div className="absolute top-2 right-2 flex gap-1">
+                <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                   <span
                     className={cn(
                       "px-2 py-0.5 rounded text-[10px] font-bold shadow-2xs backdrop-blur-xs",
@@ -126,6 +161,21 @@ export default function Events() {
                   >
                     {isPast ? "Concluded" : event.status}
                   </span>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteEvent(e, event.id, event.title)}
+                      disabled={deletingId === event.id}
+                      className="p-1 rounded-md bg-destructive/90 text-destructive-foreground hover:bg-destructive shadow-md transition-all cursor-pointer hover:scale-105"
+                      title="Delete Event (Admin)"
+                    >
+                      {deletingId === event.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

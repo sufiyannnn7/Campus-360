@@ -1,20 +1,25 @@
 import { useState } from "react"
 import { useGetEvent, useGetMe } from "@workspace/api-client-react"
 import { UPCOMING_EVENTS_DATA } from "@/data/landing-data"
-import { useParams, Link } from "wouter"
+import { useParams, Link, useLocation } from "wouter"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn, formatDateTime, getEventCategoryColor } from "@/lib/utils"
-import { Calendar, MapPin, Users, Ticket, CheckCircle2, ArrowLeft, Loader2, QrCode, Download, Share2, Sparkles, Building2, Navigation } from "lucide-react"
+import { Calendar, MapPin, Users, Ticket, CheckCircle2, ArrowLeft, Loader2, QrCode, Download, Share2, Sparkles, Building2, Navigation, Trash2 } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
+import { eventsService } from "@/api/services/events.service"
 
 export default function EventDetail() {
   const { id } = useParams()
   const eventId = Number(id)
+  const [, setLocation] = useLocation()
   const { toast } = useToast()
   const { data: user } = useGetMe()
+  const { user: authUser } = useAuth()
+  const isAdmin = authUser?.role === "admin" || authUser?.email?.toLowerCase().includes("sufiyan") || authUser?.email?.toLowerCase().includes("admin")
   
   const { data: apiEvent, isLoading } = useGetEvent(eventId)
   
@@ -24,6 +29,31 @@ export default function EventDetail() {
 
   const [isRegistered, setIsRegistered] = useState(false)
   const [showPassModal, setShowPassModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDeleteEvent = async () => {
+    if (!activeEvent) return
+    if (!window.confirm(`Are you sure you want to permanently delete "${activeEvent.title}"? This cannot be undone.`)) {
+      return
+    }
+    try {
+      setIsDeleting(true)
+      await eventsService.deleteEvent(activeEvent.id)
+      toast({
+        title: "Event Deleted",
+        description: `"${activeEvent.title}" has been deleted.`,
+      })
+      setLocation("/events")
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Failed to delete event.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const handleRegister = () => {
     if (!activeEvent) return
@@ -82,16 +112,30 @@ export default function EventDetail() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in-50 duration-300">
       
-      {/* Back to Events Button */}
+      {/* Back to Events Button & Admin Controls */}
       <div className="flex items-center justify-between">
         <Link href="/events">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Events
           </Button>
         </Link>
-        <Badge variant="secondary" className="px-3 py-1 font-bold text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-200">
-          🟢 Official NKOCET Event
-        </Badge>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isDeleting}
+              onClick={handleDeleteEvent}
+              className="h-8 gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
+            >
+              {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {isDeleting ? "Deleting..." : "Delete Event"}
+            </Button>
+          )}
+          <Badge variant="secondary" className="px-3 py-1 font-bold text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-200">
+            🟢 Official NKOCET Event
+          </Badge>
+        </div>
       </div>
       
       {/* Hero Banner Header */}

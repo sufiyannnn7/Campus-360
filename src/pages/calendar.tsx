@@ -76,7 +76,14 @@ export default function CalendarPage() {
 
   // Filter events based on active layer toggles
   const filteredEvents = useMemo(() => {
+    let deletedSet = new Set<string>();
+    try {
+      const raw = JSON.parse(localStorage.getItem("campus360_deleted_events") || "[]");
+      deletedSet = new Set((raw || []).map(String));
+    } catch {}
+
     return events.filter((event: any) => {
+      if (deletedSet.has(String(event.id))) return false;
       const cat = (event.category || "").toLowerCase()
       if (cat.includes("academic") && !layers.academic) return false
       if (cat.includes("cultural") && !layers.cultural) return false
